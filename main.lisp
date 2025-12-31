@@ -1,5 +1,5 @@
 
-(in-package #:acl2-mcp-40ants)
+(in-package #:acl2-mcp-bridge)
 
 (defparameter *bridge-server* nil)
 (defparameter *mcp-server* nil)

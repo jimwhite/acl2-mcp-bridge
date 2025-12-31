@@ -1,5 +1,5 @@
 
-(defpackage #:acl2-mcp-40ants
+(defpackage #:acl2-mcp-bridge
   (:use #:cl)
   (:import-from #:40ants-mcp/content/text #:text-content)
   (:import-from #:40ants-mcp/tools #:define-tool)
@@ -13,4 +13,4 @@
    #:*acl2-sessions*
    #:*cl-sessions*))
 
-(in-package #:acl2-mcp-40ants)
+(in-package #:acl2-mcp-bridge)

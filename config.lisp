@@ -1,5 +1,5 @@
 
-(in-package #:acl2-mcp-40ants)
+(in-package #:acl2-mcp-bridge)
 
 ;; ACL2 Bridge Configuration
 (defparameter *bridge-port* 13721)

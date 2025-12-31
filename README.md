@@ -1,12 +1,12 @@
-# ACL2 MCP Bridge Server (`acl2-mcp-40ants`)
+# ACL2 MCP Bridge Server (`acl2-mcp-bridge`)
 
-Multi-protocol ACL2 server that supports the legacy ACL2 Bridge protocol, modern Model Context Protocol (MCP) via 40ants-mcp, and a direct Common Lisp REPL. Works on SBCL, CCL, ECL, and other threaded Lisps.
+Multi-protocol ACL2 server that supports the legacy ACL2 Bridge protocol, modern Model Context Protocol (MCP), and a direct Common Lisp REPL. Works on SBCL, CCL, ECL, and other threaded Lisps.  This is a synthsis of `ACL2 Bridge`, `septract/acl2-mcp`, and `40ants-mcp`.
 
 ## Project Structure
 
 ```text
 acl2-mcp-bridge/
-├── acl2-mcp-40ants.asd
+├── acl2-mcp-bridge.asd
 ├── package.lisp
 ├── config.lisp
 ├── main.lisp
@@ -38,7 +38,7 @@ acl2-mcp-bridge/
 ```bash
 git clone https://github.com/jimwhite/acl2-mcp-bridge.git
 cd acl2-mcp-bridge
-sbcl --eval '(ql:quickload :acl2-mcp-40ants)' --quit
+sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
 ```
 
 ## Run
@@ -46,28 +46,28 @@ sbcl --eval '(ql:quickload :acl2-mcp-40ants)' --quit
 Start Bridge protocol (default):
 
 ```lisp
-(ql:quickload :acl2-mcp-40ants)
-(acl2-mcp-40ants:start-server :protocol :bridge :port 13721)
+(ql:quickload :acl2-mcp-bridge)
+(acl2-mcp-bridge:start-server :protocol :bridge :port 13721)
 ```
 
 Start MCP over stdio (good for MCP clients/agents):
 
 ```lisp
-(ql:quickload :acl2-mcp-40ants)
-(acl2-mcp-40ants:start-server :protocol :mcp :transport :stdio)
+(ql:quickload :acl2-mcp-bridge)
+(acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio)
 ```
 
 Start both protocols:
 
 ```lisp
-(ql:quickload :acl2-mcp-40ants)
-(acl2-mcp-40ants:start-both)
+(ql:quickload :acl2-mcp-bridge)
+(acl2-mcp-bridge:start-both)
 ```
 
 HTTP MCP (example):
 
 ```lisp
-(acl2-mcp-40ants:start-server :protocol :mcp :transport :http :port 8085)
+(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
 ```
 
 ## Claude Desktop config (MCP stdio example)
@@ -82,9 +82,9 @@ HTTP MCP (example):
       "command": "sbcl",
       "args": [
         "--eval",
-        "(ql:quickload :acl2-mcp-40ants)",
+        "(ql:quickload :acl2-mcp-bridge)",
         "--eval",
-        "(acl2-mcp-40ants:start-server :protocol :mcp :transport :stdio)"
+        "(acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio)"
       ]
     }
   }
@@ -102,9 +102,9 @@ With a custom ACL2 path:
         "--eval",
         "(setf (uiop:getenv \"ACL2_PATH\") \"/path/to/acl2\")",
         "--eval",
-        "(ql:quickload :acl2-mcp-40ants)",
+        "(ql:quickload :acl2-mcp-bridge)",
         "--eval",
-        "(acl2-mcp-40ants:start-both)"
+        "(acl2-mcp-bridge:start-both)"
       ]
     }
   }

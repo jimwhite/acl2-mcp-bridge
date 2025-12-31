@@ -1,5 +1,5 @@
 
-(asdf:defsystem "acl2-mcp-40ants"
+(asdf:defsystem "acl2-mcp-bridge"
   :description "ACL2 Bridge + MCP server built on 40ants-mcp"
   :author "Generated"
   :license "MIT"

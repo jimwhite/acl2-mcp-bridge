@@ -1,4 +1,4 @@
-(in-package #:acl2-mcp-40ants)
+(in-package #:acl2-mcp-bridge)
 
 ;; Threading utilities for multi-client support
 

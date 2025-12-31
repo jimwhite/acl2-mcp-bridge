@@ -1,4 +1,4 @@
-(in-package #:acl2-mcp-40ants)
+(in-package #:acl2-mcp-bridge)
 
 ;; ACL2 Bridge Protocol Implementation
 ;; The Bridge uses a simple text-based message format suitable for any language
