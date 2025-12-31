@@ -18,9 +18,8 @@ acl2-mcp-bridge/
 ├── tools-acl2.lisp
 ├── tools-cl.lisp
 ├── tools-bridge.lisp
-├── mcp/
-│   ├── server.lisp
-│   └── tools.lisp
+├── mcp-server.lisp
+├── mcp-tools.lisp
 └── README.md
 ```
 

@@ -19,6 +19,8 @@
                (:file "threading-utils")
                (:file "bridge-protocol")
                (:file "message-format")
+               (:file "mcp-tools")
+               (:file "mcp-server")
                (:file "tools-acl2")
                (:file "tools-cl")
                (:file "tools-bridge")
