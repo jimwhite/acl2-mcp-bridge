@@ -5,8 +5,12 @@
   (:import-from #:40ants-mcp/tools #:define-tool)
   (:import-from #:openrpc-server #:define-api)
   (:export
-   #:*server*
    #:start-server
-   #:stop-server))
+   #:start-both
+   #:stop-server
+   #:*bridge-server*
+   #:*mcp-server*
+   #:*acl2-sessions*
+   #:*cl-sessions*))
 
 (in-package #:acl2-mcp-40ants)

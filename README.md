@@ -1,105 +1,76 @@
-# ACL2 MCP Bridge Server (`acl2-mcp-bridge`)
+# ACL2 MCP Bridge Server (`acl2-mcp-40ants`)
 
-A unified Model Context Protocol (MCP) server for `ACL2` built with `40ants-mcp` in Common Lisp. Combines features from `ACL2 Bridge`, `septract/acl2-mcp`, and native CL capabilities.
+Multi-protocol ACL2 server that supports the legacy ACL2 Bridge protocol, modern Model Context Protocol (MCP) via 40ants-mcp, and a direct Common Lisp REPL. Works on SBCL, CCL, ECL, and other threaded Lisps.
 
 ## Project Structure
 
 ```text
 acl2-mcp-bridge/
-├── src/
-│   ├── acl2-mcp-bridge.asd          # ASDF system definition
-│   ├── packages.lisp                # Package definitions
-│   ├── core/
-│   │   ├── acl2-interface.lisp      # ACL2 interaction layer
-│   │   ├── session-management.lisp  # Persistent session support
-│   │   └── error-handling.lisp      # Robust error management
-│   ├── mcp/
-│   │   ├── server.lisp              # MCP server setup (40ants-mcp)
-│   │   ├── tools.lisp               # MCP tool definitions
-│   │   ├── resources.lisp           # Resource endpoints
-│   │   └── prompts.lisp             # Prompt templates
-│   └── cl-repl/
-│       ├── evaluator.lisp           # Common Lisp REPL integration
-│       └── cl-bridge.lisp           # Bridge to native CL features
-├── examples/
-│   └── config-example.json          # MCP client configuration
+├── acl2-mcp-40ants.asd
+├── package.lisp
+├── config.lisp
+├── main.lisp
+├── acl2-interface.lisp
+├── sessions.lisp
+├── threading-utils.lisp
+├── bridge-protocol.lisp
+├── message-format.lisp
+├── tools-acl2.lisp
+├── tools-cl.lisp
+├── tools-bridge.lisp
+├── mcp/
+│   ├── server.lisp
+│   └── tools.lisp
 └── README.md
 ```
 
-## Key Features
+## Capabilities
 
-### 1. ACL2 Theorem Proving Tools (from septract/acl2-mcp)
-- **check-theorem** - Verify a specific theorem
-- **admit** - Admit an event (function/theorem)
-- **query-event** - Retrieve event definitions and properties
-- **verify-guards** - Check guard conditions
-- **prove-theorem** - Attempt automated proofs
-- **check-book** - Validate an entire ACL2 book
-- **get-event-history** - Retrieve proof history
-- **undo-to-point** - Revert to earlier state
+- **Protocols**: ACL2 Bridge (TCP) for backward compatibility, MCP (stdio/http) for modern AI agents, and direct CL REPL.
+- **Sessions**: Persistent ACL2 and CL sessions with IDs, metadata, and output capture.
+- **Bridge tooling**: ACL2⇄CL data transfer and cross-eval helpers.
+- **ACL2 tools**: admit/check-theorem/verify-guards/query-event/list-sessions (extensible stubs ready for real ACL2 wiring).
+- **CL tools**: eval, load-file, define-function, list-sessions.
+- **Thread-aware**: Hooks for main-thread ACL2 safety; bridge server uses per-connection threads.
 
-### 2. Session Management (from ACL2 Bridge)
-- **start-session** - Create persistent ACL2 session
-- **end-session** - Clean up session
-- **session-state** - Query current session state
-- **list-sessions** - Get all active sessions
-- **session-output** - Capture ACL2 output
-
-### 3. Common Lisp REPL Integration (native + bridge)
-- **eval-cl** - Evaluate Common Lisp expressions
-- **cl-repl-session** - Persistent CL REPL session
-- **load-file** - Load Lisp source files
-- **define-function** - Define CL functions dynamically
-- **query-cl-package** - Introspect packages
-
-### 4. Bridge & Interop Tools
-- **bridge-acl2-to-cl** - Send ACL2 data to CL
-- **bridge-cl-to-acl2** - Send CL data to ACL2
-- **acl2-cl-eval** - Cross-language evaluation
-- **get-dependencies** - Analyze theorem dependencies
-
-### 5. Code Analysis & Transformation
-- **extract-lemmas** - Get supporting lemmas
-- **suggest-proofs** - AI-assisted proof suggestions
-- **dependency-graph** - Visualize proof dependencies
-- **trace-execution** - Debug theorem proving
-
-## Installation
-
-### Prerequisites
-- SBCL, CCL, or ECL (Common Lisp implementations)
-- ACL2 system installed and accessible
-- Quicklisp (Common Lisp package manager)
-
-### Setup
+## Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/jimwhite/acl2-mcp-bridge.git
 cd acl2-mcp-bridge
-
-# Install dependencies via Quicklisp
-sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
+sbcl --eval '(ql:quickload :acl2-mcp-40ants)' --quit
 ```
 
-### Quicklisp Dependency Management
+## Run
 
-Add to your quicklisp local-projects or register in dist:
+Start Bridge protocol (default):
 
 ```lisp
-(ql:quickload '(:40ants-mcp
-               :cl-user                  ; Standard CL packages
-               :uiop                     ; System operations
-               :str                      ; String utilities
-               :jonathan                 ; JSON (alternative to yason)
-               :alexandria               ; Common utilities
-               :bordeaux-threads         ; Thread support
-               :usocket                  ; TCP/IP support))
+(ql:quickload :acl2-mcp-40ants)
+(acl2-mcp-40ants:start-server :protocol :bridge :port 13721)
 ```
 
-## Configuration
+Start MCP over stdio (good for MCP clients/agents):
 
-### Claude Desktop
+```lisp
+(ql:quickload :acl2-mcp-40ants)
+(acl2-mcp-40ants:start-server :protocol :mcp :transport :stdio)
+```
+
+Start both protocols:
+
+```lisp
+(ql:quickload :acl2-mcp-40ants)
+(acl2-mcp-40ants:start-both)
+```
+
+HTTP MCP (example):
+
+```lisp
+(acl2-mcp-40ants:start-server :protocol :mcp :transport :http :port 8085)
+```
+
+## Claude Desktop config (MCP stdio example)
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -111,16 +82,16 @@ Add to your quicklisp local-projects or register in dist:
       "command": "sbcl",
       "args": [
         "--eval",
-        "(ql:quickload :acl2-mcp-bridge)",
+        "(ql:quickload :acl2-mcp-40ants)",
         "--eval",
-        "(acl2-mcp-bridge:start-server)"
+        "(acl2-mcp-40ants:start-server :protocol :mcp :transport :stdio)"
       ]
     }
   }
 }
 ```
 
-### With Custom ACL2 Path
+With a custom ACL2 path:
 
 ```json
 {
@@ -129,21 +100,20 @@ Add to your quicklisp local-projects or register in dist:
       "command": "sbcl",
       "args": [
         "--eval",
-        "(ql:quickload :acl2-mcp-bridge)",
+        "(setf (uiop:getenv \"ACL2_PATH\") \"/path/to/acl2\")",
         "--eval",
-        "(acl2-mcp-bridge:start-server :acl2-path \"/path/to/acl2\")"
-      ],
-      "env": {
-        "ACL2_PATH": "/path/to/acl2"
-      }
+        "(ql:quickload :acl2-mcp-40ants)",
+        "--eval",
+        "(acl2-mcp-40ants:start-both)"
+      ]
     }
   }
 }
 ```
 
-## Usage Examples
+## Usage Examples (MCP tools)
 
-### Proving a Theorem
+Admit a theorem:
 
 ```json
 {
@@ -155,7 +125,7 @@ Add to your quicklisp local-projects or register in dist:
 }
 ```
 
-### Evaluating Common Lisp
+Evaluate Common Lisp:
 
 ```json
 {
@@ -167,7 +137,7 @@ Add to your quicklisp local-projects or register in dist:
 }
 ```
 
-### Cross-Language Bridge
+Bridge ACL2 → CL:
 
 ```json
 {
@@ -180,93 +150,8 @@ Add to your quicklisp local-projects or register in dist:
 }
 ```
 
-## Running the Server
+## Notes and next steps
 
-### Direct Execution
-
-```bash
-sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
-     --eval '(acl2-mcp-bridge:start-server)' \
-     --eval '(loop (sleep 1))'
-```
-
-### With Buildapp (Standalone Executable)
-
-# Create standalone executable
-
-```bash
-buildapp --output acl2-mcp-bridge \
-         --load-system acl2-mcp-bridge \
-         --eval '(acl2-mcp-bridge:start-server)' \
-         --entry-point acl2-mcp-bridge:main
-```
-
-# Run it
-
-```bash
-./acl2-mcp-bridge
-```
-
-## Testing
-
-# Run unit tests
-
-```bash
-sbcl --eval '(ql:quickload :acl2-mcp-bridge/tests)' \
-     --eval '(run-tests)' \
-     --quit
-```
-
-## Architecture Notes
-
-### Session Management Design
-
-Each session maintains:
-- Unique session ID (UUID)
-- ACL2 subprocess with persistent pipes
-- Output buffer for capturing results
-- Timeout handling and cleanup
-
-### Error Handling Strategy
-
-- All tool functions wrapped in handler-case
-- Timeouts enforced via process management
-- Graceful degradation with meaningful error messages
-- Session recovery mechanisms
-
-### Transport Flexibility
-
-- Primary: STDIO (efficient, built-in)
-- Secondary: HTTP (for remote access)
-- Extensible for SSE and streaming
-
-## Bridge Feature Comparison
-
-| Feature | septract/acl2-mcp | ACL2 Bridge | This Implementation |
-|---------|------------------|------------|-------------------|
-| Language | Python | Common Lisp | Common Lisp |
-| Session Support | ✓ | ✓ | ✓ |
-| ACL2 Tools | 15 tools | Custom interface | 15+ tools |
-| CL Integration | ✗ | Partial | ✓ Full |
-| MCP Compliance | ✓ | ✗ | ✓ |
-| Framework | FastMCP | Custom | 40ants-mcp |
-| Multi-Lisp Support | ✗ | Limited | ✓ (SBCL/CCL/ECL) |
-
-## Contributing
-
-Contributions welcome! Focus areas:
-- Additional ACL2 tools
-- Performance optimization
-- Extended documentation
-- Test coverage
-
-## License
-
-BSD 3-Clause License (compatible with ACL2 and 40ants-mcp)
-
-## References
-
-- [ACL2 Documentation](https://www.cs.utexas.edu/~moore/acl2/)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-- [40ants-mcp Framework](https://github.com/40ants/mcp)
-- [septract/acl2-mcp](https://github.com/septract/acl2-mcp)
+- ACL2 integration functions are stubbed; wire them to your ACL2 process or in-image ACL2 as needed.
+- Bridge protocol stubs cover message framing and per-connection threads; extend `run-in-main-thread` if ACL2 must stay on the main thread.
+- Add real error/output handling in `acl2-eval`, `acl2-event`, and friends to surface proof output in MCP responses.
