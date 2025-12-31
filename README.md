@@ -1,6 +1,6 @@
 # ACL2 MCP Bridge Server (`acl2-mcp-bridge`)
 
-Multi-protocol ACL2 server that supports the legacy ACL2 Bridge protocol, modern Model Context Protocol (MCP), and a direct Common Lisp REPL. Works on SBCL, CCL, ECL, and other threaded Lisps.  This is a synthsis of `ACL2 Bridge`, `septract/acl2-mcp`, and `40ants-mcp`.
+Multi-protocol ACL2 server that supports the legacy ACL2 Bridge protocol, modern Model Context Protocol (MCP) via 40ants-mcp, and a direct Common Lisp REPL. Works on SBCL, CCL, ECL, and other threaded Lisps. This is a synthesis of `ACL2 Bridge`, `septract/acl2-mcp`, and `40ants-mcp`.
 
 ## Project Structure
 
@@ -42,28 +42,28 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
 
 ## Run
 
-Start Bridge protocol (default):
+### Start Bridge protocol (default):
 
 ```lisp
 (ql:quickload :acl2-mcp-bridge)
 (acl2-mcp-bridge:start-server :protocol :bridge :port 13721)
 ```
 
-Start MCP over stdio (good for MCP clients/agents):
+### Start MCP over stdio (good for MCP clients/agents):
 
 ```lisp
 (ql:quickload :acl2-mcp-bridge)
 (acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio)
 ```
 
-Start both protocols:
+### Start both protocols:
 
 ```lisp
 (ql:quickload :acl2-mcp-bridge)
 (acl2-mcp-bridge:start-both)
 ```
 
-HTTP MCP (example):
+### HTTP MCP (example):
 
 ```lisp
 (acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
@@ -90,7 +90,7 @@ HTTP MCP (example):
 }
 ```
 
-With a custom ACL2 path:
+* With a custom ACL2 path:
 
 ```json
 {
@@ -112,7 +112,7 @@ With a custom ACL2 path:
 
 ## Usage Examples (MCP tools)
 
-Admit a theorem:
+### Admit a theorem:
 
 ```json
 {
@@ -124,7 +124,7 @@ Admit a theorem:
 }
 ```
 
-Evaluate Common Lisp:
+### Evaluate Common Lisp:
 
 ```json
 {
@@ -136,7 +136,7 @@ Evaluate Common Lisp:
 }
 ```
 
-Bridge ACL2 → CL:
+### Bridge ACL2 → CL:
 
 ```json
 {
@@ -149,8 +149,90 @@ Bridge ACL2 → CL:
 }
 ```
 
-## Notes and next steps
+  ## Running the Server
 
-- ACL2 integration functions are stubbed; wire them to your ACL2 process or in-image ACL2 as needed.
-- Bridge protocol stubs cover message framing and per-connection threads; extend `run-in-main-thread` if ACL2 must stay on the main thread.
-- Add real error/output handling in `acl2-eval`, `acl2-event`, and friends to surface proof output in MCP responses.
+  ### Direct execution
+
+  ```bash
+  sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
+    --eval '(acl2-mcp-bridge:start-server :protocol :bridge)' \
+    --eval '(loop (sleep 1))'
+  ```
+
+  ### With buildapp (standalone executable)
+
+  Create the binary:
+
+  ```bash
+  buildapp --output acl2-mcp-bridge \
+        --load-system acl2-mcp-bridge \
+        --eval '(acl2-mcp-bridge:start-server :protocol :bridge)' \
+        --entry-point acl2-mcp-bridge:main
+  ```
+
+  Run it:
+
+  ```bash
+  ./acl2-mcp-bridge
+  ```
+
+  ## Testing
+
+  ```bash
+  sbcl --eval '(ql:quickload :acl2-mcp-bridge/tests)' \
+    --eval '(run-tests)' \
+    --quit
+  ```
+
+  ## Architecture Notes
+
+  ### Session management
+  - Unique session IDs for ACL2 and CL
+  - ACL2 subprocess hooks (stubbed) with output capture and timestamps
+  - Cleanup and timeout hooks (extend in your implementation)
+
+  ### Error handling
+  - Tool calls wrapped for errors; add richer output/error propagation in `acl2-eval`/`acl2-event`
+  - Logging via `log4cl`; extend for per-session tracing
+
+  ### Transport flexibility
+  - Primary: stdio (MCP)
+  - Optional: HTTP (MCP) via 40ants-mcp
+  - Bridge protocol: TCP listener for backward compatibility
+
+  ## Bridge Feature Comparison
+
+  | Feature | septract/acl2-mcp | ACL2 Bridge | This Implementation |
+  |---------|------------------|-------------|--------------------|
+  | Language | Python | Common Lisp | Common Lisp |
+  | Session Support | ✓ | ✓ | ✓ |
+  | ACL2 Tools | 15 tools | Custom interface | 15+ tools |
+  | CL Integration | ✗ | Partial | ✓ Full |
+  | MCP Compliance | ✓ | ✗ | ✓ |
+  | Framework | FastMCP | Custom | 40ants-mcp |
+  | Multi-Lisp Support | ✗ | Limited | ✓ (SBCL/CCL/ECL) |
+
+  ## Contributing
+
+  Contributions welcome. Focus areas:
+  - Wire real ACL2 integration for `acl2-eval`, `acl2-event`, and friends
+  - Performance and concurrency hardening
+  - Extended documentation and examples
+  - Test coverage
+
+  ## License
+
+  BSD 3-Clause License (compatible with ACL2 and 40ants-mcp)
+
+  ## References
+
+  - [ACL2 Documentation](https://www.cs.utexas.edu/~moore/acl2/)
+  - [Model Context Protocol](https://modelcontextprotocol.io/)
+  - [40ants-mcp Framework](https://github.com/40ants/mcp)
+  - [septract/acl2-mcp](https://github.com/septract/acl2-mcp)
+
+  ## Notes and next steps
+
+  - ACL2 integration functions are stubbed; wire them to your ACL2 process or in-image ACL2 as needed.
+  - Bridge protocol stubs cover message framing and per-connection threads; extend `run-in-main-thread` if ACL2 must stay on the main thread.
+  - Add real error/output handling in `acl2-eval`, `acl2-event`, and friends to surface proof output in MCP responses.
