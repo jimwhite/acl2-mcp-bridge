@@ -79,7 +79,7 @@
        (sb-bsd-sockets:socket-make-stream client-socket
                                           :input t :output t
                                           :element-type 'character
-                                          :buffering :line)))))
+                                          :buffering :full)))))
 
 (defun ccl-close-socket (socket &key abort)
   (etypecase socket
@@ -164,7 +164,7 @@
       (return-from read-command (values nil nil)))
     (let* ((space (position #\Space line))
            (type (subseq line 0 space))
-           (len (parse-integer (subseq line (1+ space)))))
+           (len (parse-integer line :start (1+ space))))
       (let ((content (make-string len)))
         (read-sequence content stream)
         (read-char stream nil nil)  ; consume newline
@@ -238,6 +238,7 @@
 
 (defun worker-thread (stream)
   (format t "Starting worker thread~%")
+  (force-output)
   (handler-case
       (let ((acl2::*default-hs* (acl2::hl-hspace-init))
             (*package* (find-package "ACL2"))
