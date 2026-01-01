@@ -103,13 +103,27 @@ Each client (identified by MCP session ID) gets its own CL evaluation context."
   (declare (ignore host))
   (log:info "Starting MCP server with transport ~A" transport)
   
-  ;; For HTTP transport, use our session-aware variant
-  (let ((transport-obj (case transport
-                         (:http (make-instance 'session-http-transport :port port))
-                         (:stdio (make-instance 'stdio-transport))
-                         (t (error "Unknown transport: ~A" transport)))))
-    (40ants-mcp/server/definition:start-server 
-     acl2-mcp-tools
-     :transport transport-obj)))
+  (case transport
+    (:http
+     ;; Use our custom session-aware transport
+     ;; We access internal symbols because 40ants-mcp doesn't export them
+     (let* ((init-fn (symbol-function 
+                      (find-symbol "INITIALIZE-RPC-SERVER" 
+                                   (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
+            (handle-fn (symbol-function 
+                        (find-symbol "HANDLE-MESSAGE" 
+                                     (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
+            (rpc-server (funcall init-fn acl2-mcp-tools))
+            (transport-obj (make-instance 'session-http-transport :port port)))
+       (start-loop transport-obj
+                   (lambda (message)
+                     (funcall handle-fn rpc-server message)))))
+    (:stdio
+     ;; Use standard 40ants-mcp for stdio
+     (40ants-mcp/server/definition:start-server 
+      acl2-mcp-tools
+      :transport :stdio))
+    (t
+     (error "Unknown transport: ~A" transport))))
 
 ;; Note: 40ants-mcp has no public stop API; stopping requires terminating the process.

@@ -27,7 +27,9 @@
    #:destroy-session
    #:list-all-sessions
    #:*current-session*
+   #:*sessions*
    #:cl-session
+   #:cl-session-p
    #:cl-session-id
    #:cl-session-eval-package
    #:cl-session-user-defined-symbols
@@ -43,6 +45,7 @@
    #:start-acl2-session
    #:stop-acl2-session
    #:get-acl2-session
+   #:*acl2-sessions*
    #:initialize-acl2-interface
    #:*acl2-executable*))
 

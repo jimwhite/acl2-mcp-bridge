@@ -72,8 +72,9 @@ Returns session ID string or generates one from client info."
           session-aware-handler)
     
     ;; Start the server (from parent class logic)
+    ;; Run in thread to not block the caller
     (setf (40ants-mcp/http-transport:transport-server transport)
           (clack:clackup (40ants-mcp/http-transport:transport-lack-app transport)
                          :server :hunchentoot
                          :port (40ants-mcp/http-transport:transport-port transport)
-                         :use-thread nil))))
+                         :use-thread t))))
