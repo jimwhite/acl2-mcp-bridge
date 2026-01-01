@@ -106,6 +106,47 @@
       (is (destroy-session "test-session"))
       (is (null (get-session "test-session"))))))
 
+(test cl-session-isolation
+  "Test that sessions have isolated namespaces via private packages."
+  (let ((*sessions* (make-hash-table :test 'equal)))
+    (let ((session-a (get-or-create-session "session-a"))
+          (session-b (get-or-create-session "session-b")))
+      ;; Each session gets its own package
+      (is (not (eq (cl-session-eval-package session-a)
+                   (cl-session-eval-package session-b))))
+      ;; Define *counter* in session A
+      (multiple-value-bind (result err-p err-msg)
+          (cl-eval "(defvar *counter* 100)" session-a)
+        (declare (ignore result err-msg))
+        (is (not err-p)))
+      ;; Define *counter* in session B with different value
+      (multiple-value-bind (result err-p err-msg)
+          (cl-eval "(defvar *counter* 999)" session-b)
+        (declare (ignore result err-msg))
+        (is (not err-p)))
+      ;; Session A sees its value
+      (multiple-value-bind (result err-p err-msg)
+          (cl-eval "*counter*" session-a)
+        (declare (ignore err-msg))
+        (is (not err-p))
+        (is (equal '(100) result)))
+      ;; Session B sees its value (isolated!)
+      (multiple-value-bind (result err-p err-msg)
+          (cl-eval "*counter*" session-b)
+        (declare (ignore err-msg))
+        (is (not err-p))
+        (is (equal '(999) result)))
+      ;; Define function in session A
+      (cl-eval "(defun my-fn () :from-a)" session-a)
+      ;; Define same-named function in session B with different behavior
+      (cl-eval "(defun my-fn () :from-b)" session-b)
+      ;; Each sees their own function
+      (is (equal '(:from-a) (cl-eval "(my-fn)" session-a)))
+      (is (equal '(:from-b) (cl-eval "(my-fn)" session-b)))
+      ;; Cleanup
+      (destroy-session "session-a")
+      (destroy-session "session-b"))))
+
 (test acl2-session-start-stop
   (let ((*acl2-sessions* (make-hash-table :test 'equal)))
     (let ((id (start-acl2-session)))

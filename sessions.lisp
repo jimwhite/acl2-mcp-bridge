@@ -8,14 +8,42 @@
 ;;; thread to handle the client's requests."
 ;;;
 ;;; Each MCP client (identified by session ID) gets:
-;;; - Own package context (can be in different packages)
-;;; - Own user-defined symbol tracking (for reset-cl cleanup)
+;;; - Own private package (SESSION-<id>) for true symbol isolation
+;;; - Own function/variable definitions (in their package)
 ;;; - Own activity tracking
 ;;;
-;;; NOTE: CL functions/macros are inherently global. Sessions track which 
-;;; symbols each client defined so reset-cl can clean up that client's 
-;;; definitions. For true isolation, use separate processes.
+;;; This provides real isolation: defun in session A creates A::foo,
+;;; defun in session B creates B::foo - completely separate symbols.
 ;;; ============================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; Session Package Management
+;;; ---------------------------------------------------------------------------
+
+(defun make-session-package-name (session-id)
+  "Generate unique package name for a session."
+  (format nil "SESSION-~A" session-id))
+
+(defun create-session-package (session-id)
+  "Create a fresh package for SESSION-ID that inherits CL and useful libs."
+  (let ((pkg-name (make-session-package-name session-id)))
+    ;; Delete if exists (shouldn't happen but be safe)
+    (let ((existing (find-package pkg-name)))
+      (when existing
+        (delete-package existing)))
+    ;; Create package that uses CL (core) and inherits useful symbols
+    (make-package pkg-name :use '(:cl))))
+
+(defun destroy-session-package (session-id)
+  "Delete the package for SESSION-ID."
+  (let* ((pkg-name (make-session-package-name session-id))
+         (pkg (find-package pkg-name)))
+    (when pkg
+      ;; Unintern all symbols to allow clean deletion
+      (do-symbols (sym pkg)
+        (when (eq (symbol-package sym) pkg)
+          (unintern sym pkg)))
+      (delete-package pkg))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Session State Structure
@@ -24,8 +52,7 @@
 (defstruct cl-session
   "State for a CL evaluation session."
   (id "default" :type string)
-  (eval-package (find-package "CL-USER"))
-  (user-defined-symbols nil :type list)
+  (eval-package nil)  ; Session's private package
   (created (get-universal-time) :type integer)
   (last-activity (get-universal-time) :type integer))
 
@@ -47,12 +74,15 @@
 ;;; ---------------------------------------------------------------------------
 
 (defun get-or-create-session (session-id)
-  "Get existing session or create new one for SESSION-ID."
+  "Get existing session or create new one for SESSION-ID.
+Creates a private package for the session to ensure symbol isolation."
   (bt:with-lock-held (*sessions-lock*)
     (or (gethash session-id *sessions*)
-        (let ((session (make-cl-session :id session-id)))
+        (let* ((pkg (create-session-package session-id))
+               (session (make-cl-session :id session-id :eval-package pkg)))
           (setf (gethash session-id *sessions*) session)
-          (log:info "Created new CL session: ~A" session-id)
+          (log:info "Created new CL session: ~A (package ~A)" 
+                    session-id (package-name pkg))
           session))))
 
 (defun get-session (session-id)
@@ -61,15 +91,12 @@
     (gethash session-id *sessions*)))
 
 (defun destroy-session (session-id)
-  "Destroy session and clean up its resources."
+  "Destroy session and clean up its resources (including its package)."
   (bt:with-lock-held (*sessions-lock*)
     (let ((session (gethash session-id *sessions*)))
       (when session
-        ;; Clean up user-defined symbols
-        (dolist (sym (cl-session-user-defined-symbols session))
-          (ignore-errors
-            (when (fboundp sym) (fmakunbound sym))
-            (when (boundp sym) (makunbound sym))))
+        ;; Delete the session's package (cleans up all symbols)
+        (destroy-session-package session-id)
         (remhash session-id *sessions*)
         (log:info "Destroyed CL session: ~A" session-id)
         t))))
@@ -80,7 +107,6 @@
     (loop for session being the hash-values of *sessions*
           collect (list :id (cl-session-id session)
                         :package (package-name (cl-session-eval-package session))
-                        :symbols (length (cl-session-user-defined-symbols session))
                         :created (cl-session-created session)
                         :last-activity (cl-session-last-activity session)))))
 
@@ -104,18 +130,15 @@
 ;;; ---------------------------------------------------------------------------
 
 (defun cl-eval (code &optional (session *current-session*))
-  "Evaluate Common Lisp code in a session's context.
-Returns (values result-list error-p error-message)."
+  "Evaluate Common Lisp code in a session's private package.
+Returns (values result-list error-p error-message).
+Definitions are automatically isolated to this session's package."
   (unless session
     (return-from cl-eval (values nil t "No active session")))
   (with-session (session)
     (handler-case
         (let* ((form (read-from-string code))
                (results (multiple-value-list (eval form))))
-          ;; Track defined symbols
-          (when (and (consp form) 
-                     (member (car form) '(defun defvar defparameter defconstant defmacro)))
-            (pushnew (second form) (cl-session-user-defined-symbols session)))
           (values results nil nil))
       (error (e)
         (values nil t (princ-to-string e))))))
@@ -132,7 +155,7 @@ Returns (values result error-p error-message)."
         (values nil t (princ-to-string e))))))
 
 (defun cl-define-function (name lambda-list body &optional (session *current-session*))
-  "Define a function in a session's context.
+  "Define a function in a session's private package.
 Returns (values function-name error-p error-message)."
   (unless session
     (return-from cl-define-function (values nil t "No active session")))
@@ -140,7 +163,6 @@ Returns (values function-name error-p error-message)."
     (handler-case
         (progn
           (eval `(defun ,name ,lambda-list ,body))
-          (pushnew name (cl-session-user-defined-symbols session))
           (values name nil nil))
       (error (e)
         (values nil t (princ-to-string e))))))
@@ -153,19 +175,16 @@ Returns (values package-name error-p error-message)."
       (values nil t "No active session")))
 
 (defun cl-reset (&optional (session *current-session*))
-  "Reset a session's evaluation context to initial state.
+  "Reset a session's evaluation context by recreating its package.
 Returns (values message error-p error-message)."
   (unless session
     (return-from cl-reset (values nil t "No active session")))
   (handler-case
-      (progn
-        ;; Unbind all user-defined symbols
-        (dolist (sym (cl-session-user-defined-symbols session))
-          (when (fboundp sym) (fmakunbound sym))
-          (when (boundp sym) (makunbound sym)))
-        (setf (cl-session-user-defined-symbols session) nil)
-        ;; Reset to CL-USER package
-        (setf (cl-session-eval-package session) (find-package "CL-USER"))
+      (let ((session-id (cl-session-id session)))
+        ;; Destroy and recreate the package
+        (destroy-session-package session-id)
+        (let ((new-pkg (create-session-package session-id)))
+          (setf (cl-session-eval-package session) new-pkg))
         (values "Evaluation context reset to initial state" nil nil))
     (error (e)
       (values nil t (princ-to-string e)))))

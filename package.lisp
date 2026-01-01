@@ -32,7 +32,6 @@
    #:cl-session-p
    #:cl-session-id
    #:cl-session-eval-package
-   #:cl-session-user-defined-symbols
    
    ;; CL evaluation
    #:cl-eval
