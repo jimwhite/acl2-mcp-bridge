@@ -239,7 +239,6 @@ Worker-name is sent in the hello message for client identification."
           ;; Flush any pending output
           (bridge-flush-output ostream)
           ;; Send return value based on command type
-          (log:info "Sending return for cmd-type ~A, results=~A" cmd-type results)
           (send-bridge-return cmd-type results stream))
       (error (e)
         (log:error "Error during command: ~A" e)
