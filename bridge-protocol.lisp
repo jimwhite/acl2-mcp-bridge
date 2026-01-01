@@ -61,12 +61,14 @@
       (usocket:socket-close socket))))
 
 (defun handle-bridge-lisp-command (session content stream)
-  "Handle (LISP code) - evaluate Common Lisp."
-  (multiple-value-bind (result error-p error-msg)
-      (cl-eval content :session-id (acl2-session-id session))
-    (if error-p
-      (send-bridge-error stream error-msg)
-      (send-bridge-return stream (format nil "~S" result)))))
+  "Handle (LISP code) - evaluate Common Lisp in session context."
+  ;; Get or create CL session for this bridge client
+  (let ((*current-session* (get-or-create-session (acl2-session-id session))))
+    (multiple-value-bind (result error-p error-msg)
+        (cl-eval content)
+      (if error-p
+          (send-bridge-error stream error-msg)
+          (send-bridge-return stream (format nil "~S" result))))))
 
 (defun handle-bridge-acl2-command (session content stream)
   "Handle (ACL2 form) - evaluate ACL2 via nld/ld."

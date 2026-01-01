@@ -17,6 +17,7 @@
                (:file "config")
                (:file "acl2-interface")
                (:file "sessions")
+               (:file "session-transport")
                (:file "threading-utils")
                (:file "bridge-protocol")
                (:file "message-format")

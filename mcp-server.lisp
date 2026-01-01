@@ -96,14 +96,20 @@ start fresh without restarting the server.")
 
 
 (defun start-mcp-server (&key (transport :stdio) host port)
-  "Start the MCP server using 40ants-mcp's start-server.
+  "Start the MCP server with per-client session support.
 
-This properly exposes tools via MCP's tools/list and tools/call methods."
+Uses session-http-transport for HTTP to provide isolated sessions per client.
+Each client (identified by MCP session ID) gets its own CL evaluation context."
   (declare (ignore host))
   (log:info "Starting MCP server with transport ~A" transport)
-  (40ants-mcp/server/definition:start-server 
-   acl2-mcp-tools
-   :transport transport
-   :port port))
+  
+  ;; For HTTP transport, use our session-aware variant
+  (let ((transport-obj (case transport
+                         (:http (make-instance 'session-http-transport :port port))
+                         (:stdio (make-instance 'stdio-transport))
+                         (t (error "Unknown transport: ~A" transport)))))
+    (40ants-mcp/server/definition:start-server 
+     acl2-mcp-tools
+     :transport transport-obj)))
 
 ;; Note: 40ants-mcp has no public stop API; stopping requires terminating the process.

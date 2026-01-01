@@ -65,4 +65,4 @@ Returns two values: bridge server and MCP server."
   (format t "Bridge Server: ~A~%" (if *bridge-server* "RUNNING" "STOPPED"))
   (format t "MCP Server: ~A~%" (if *mcp-server* "RUNNING" "STOPPED"))
   (format t "ACL2 Sessions: ~D~%" (hash-table-count *acl2-sessions*))
-  (format t "CL Sessions: ~D~%" (hash-table-count *cl-sessions*)))
+  (format t "CL Sessions: ~D~%" (hash-table-count *sessions*)))
