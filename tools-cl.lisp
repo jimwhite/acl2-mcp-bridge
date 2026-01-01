@@ -1,45 +1,14 @@
 
 (in-package #:acl2-mcp-bridge)
 
-;; Common Lisp-specific MCP tools
+;;; ============================================================================
+;;; Common Lisp Tool Helpers
+;;;
+;;; NOTE: The actual MCP tool definitions are in mcp-server.lisp.
+;;; This file contains alternative/reference implementations and may be removed
+;;; or repurposed once the main tools are stable.
+;;; ============================================================================
 
-(define-api (cl-api :title "Common Lisp MCP Tools"))
-
-(define-tool (cl-api eval-cl) (code)
-  (:summary "Evaluate Common Lisp code")
-  (:param code string "Common Lisp form(s)")
-  (:result (soft-list-of text-content))
-  (multiple-value-bind (results error-p error-msg)
-      (cl-eval code)
-    (if error-p
-      (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
-      ;; Format results: single value as itself, multiple values separated by newlines
-      (list (make-instance 'text-content 
-              :text (cond
-                     ((null results) "NIL")
-                     ((null (cdr results)) (format nil "~S" (car results)))
-                     (t (format nil "~{~S~^~%~}" results))))))))
-
-(define-tool (cl-api load-file) (path)
-  (:summary "Load a Common Lisp file")
-  (:param path string "Path to .lisp file")
-  (:result (soft-list-of text-content))
-  (multiple-value-bind (result error-p error-msg)
-      (cl-load-file path)
-    (if error-p
-      (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
-      (list (make-instance 'text-content :text "File loaded successfully")))))
-
-(define-tool (cl-api define-function) (name lambda-list body)
-  (:summary "Define a function")
-  (:param name string "Function name")
-  (:param lambda-list string "Parameter list")
-  (:param body string "Function body")
-  (:result (soft-list-of text-content))
-  (multiple-value-bind (result error-p error-msg)
-      (cl-define-function (read-from-string name) 
-                         (read-from-string lambda-list)
-                         (read-from-string body))
-    (if error-p
-      (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
-      (list (make-instance 'text-content :text (format nil "Defined ~A" name))))))
+;; The primary CL tools are now defined in mcp-server.lisp using the 
+;; acl2-mcp-tools API. The session functions (cl-eval, cl-load-file, etc.)
+;; are in sessions.lisp.

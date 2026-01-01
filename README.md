@@ -112,8 +112,7 @@ acl2-mcp-bridge/
 {
   "tool": "admit",
   "arguments": {
-    "code": "(defthm append-assoc (equal (append (append x y) z) (append x (append y z))))",
-    "session_id": "session-1"
+    "code": "(defthm append-assoc (equal (append (append x y) z) (append x (append y z))))"
   }
 }
 ```
@@ -122,24 +121,32 @@ acl2-mcp-bridge/
 
 ```json
 {
-  "tool": "eval-cl",
+  "tool": "eval_cl",
   "arguments": {
-    "code": "(defun fib (n) (if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2)))))",
-    "session_id": "cl-session-1"
+    "code": "(defun fib (n) (if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2)))))"
   }
 }
 ```
 
-### Cross-Language Bridge
+### Defining a Function
 
 ```json
 {
-  "tool": "bridge-acl2-to-cl",
+  "tool": "define_function",
   "arguments": {
-    "data": "(cons 1 (cons 2 (cons 3 nil)))",
-    "acl2-session-id": "session-1",
-    "cl-session-id": "cl-session-1"
+    "name": "square",
+    "lambda_list": "(x)",
+    "body": "(* x x)"
   }
+}
+```
+
+### Resetting the Context
+
+```json
+{
+  "tool": "reset_cl",
+  "arguments": {}
 }
 ```
 
@@ -248,9 +255,8 @@ curl -s -X POST http://127.0.0.1:8085/mcp \
 ```
 
 Method names (snake_case), as registered today:
-- CL tools: `eval_cl`, `load_file`, `define_function`, `list_sessions`, `start_session`, `stop_session`
-- ACL2 tools (stubs): `check_theorem`, `admit`, `verify_guards`, `query_event`, `list_sessions`, `start_session`, `stop_session`
-- Bridge tools: `acl2_to_cl`, `cl_to_acl2`, `cross_eval`
+- CL tools: `eval_cl`, `load_file`, `define_function`, `get_package`, `reset_cl`
+- ACL2 tools (stubs): `admit`, `check_theorem`, `verify_guards`, `query_event`
 
 Example (eval_cl):
 
@@ -388,29 +394,46 @@ Claude Desktop (stdio) example remains the same as above; omit `url` and use `:t
 
 ### Session lifecycle (current)
 
-- **CL sessions**: Simple in-process evaluation model. Each session tracks its current package context. Missing `session_id` auto-creates a session (default is "default") via `ensure-cl-session`. Sessions are managed with `start_session`, `stop_session`, and `list_sessions` tools. The MCP server itself provides the isolation boundary—clients needing separate environments should spawn multiple server instances.
-- **ACL2 sessions**: IDs are generated and stored, but lifecycle management is still stubbed; tool calls accept `session_id` and will use the default when omitted (see [acl2-interface.lisp](acl2-interface.lisp)).
+Based on the ACL2 Bridge model: "When a client connects, it creates a new worker thread to handle the client's requests. The worker thread presents the client with a kind of read-eval-print loop."
+
+- **Evaluation context**: Single in-process evaluation context per server instance. The context maintains:
+  - Current package (defaults to CL-USER, can be changed via IN-PACKAGE)
+  - User-defined functions and variables (persists across calls)
+  - Tracking of defined symbols (for reset)
+
+- **Isolation model**: The MCP server process provides the isolation boundary. Clients needing separate environments should spawn multiple server instances. This matches how the ACL2 Bridge handles isolation.
+
+- **Reset capability**: Use `reset_cl` to clear user-defined symbols and reset package to CL-USER without restarting the server.
+
+- **ACL2 sessions**: IDs are generated and stored, but lifecycle management is still stubbed; full ACL2 integration is pending (see [acl2-interface.lisp](acl2-interface.lisp)).
 
 ## MCP tool reference (current)
 
-- CL tools (API `cl-api`, defined in [tools-cl.lisp](tools-cl.lisp))
-  - `eval_cl`: args `code` (string, required), `session_id` (string, optional, default "default"); returns result(s) or error text. Single values are printed directly; multiple values are separated by newlines.
-  - `load_file`: args `path` (string, required), `session_id` (string, optional, default "default"); loads a Lisp file and reports success/error.
-  - `define_function`: args `name` (string), `lambda_list` (string), `body` (string), `session_id` (string, optional); reads forms and interns a function in the session.
-  - `list_sessions`: no args; returns the list of active CL sessions with metadata (id, package, created, last-activity).
-  - `start_session`: no args; creates a new CL session and returns its UUID.
-  - `stop_session`: args `session_id` (string, required); removes the CL session (reports "not found" if missing).
+### CL tools (defined in [mcp-server.lisp](mcp-server.lisp))
 
-Notes
-- Session IDs are plain UUID strings; the default CL session ID is "default" when not provided.
-- Each session maintains its own package context (defaults to CL-USER).
-- Results are returned as a list of `text-content` items as required by 40ants-mcp.
+| Tool | Args | Description |
+|------|------|-------------|
+| `eval_cl` | `code` (string) | Evaluate Common Lisp code. Returns result(s) or error. Multiple values separated by newlines. |
+| `load_file` | `path` (string) | Load a .lisp source file into the evaluation context. |
+| `define_function` | `name`, `lambda_list`, `body` (all strings) | Define a function. Equivalent to `(defun name lambda-list body)`. |
+| `get_package` | (none) | Return the current evaluation package name. |
+| `reset_cl` | (none) | Reset context: unbind user definitions, reset package to CL-USER. |
 
-- ACL2 tools (API `acl2-api`, defined in [tools-acl2.lisp](tools-acl2.lisp))
-  - `start-session`: no args; creates a new ACL2 session and returns its id.
-  - `stop-session`: args `session_id` (string, required); removes the ACL2 session (no-op message if missing).
-  - `list-sessions`: no args; lists ACL2 sessions.
-  - Other ACL2 tools (`admit`, `check-theorem`, `verify-guards`, `query-event`) accept `session_id` (default is "default"); full ACL2 integration is pending, but session lifecycle is explicit.
+**Notes:**
+- Results are returned as `text-content` items (per 40ants-mcp format)
+- Package context persists across calls (use IN-PACKAGE to change)
+- Defined symbols are tracked for `reset_cl`
+
+### ACL2 tools (stubs, defined in [tools-acl2.lisp](tools-acl2.lisp))
+
+| Tool | Args | Description |
+|------|------|-------------|
+| `admit` | `code`, `session_id`? | Admit an event (function/theorem) |
+| `check_theorem` | `code`, `session_id`? | Verify a theorem |
+| `verify_guards` | `name`, `session_id`? | Check guard conditions |
+| `query_event` | `name`, `session_id`? | Retrieve event definition |
+
+Full ACL2 integration is pending; these are placeholder stubs.
 
 ## Claude Desktop config (MCP stdio example)
 
@@ -455,40 +478,45 @@ Notes
 
 ## Usage Examples (MCP tools)
 
-### Admit a theorem:
-
-```json
-{
-  "tool": "admit",
-  "arguments": {
-    "code": "(defthm append-assoc (equal (append (append x y) z) (append x (append y z))))",
-    "session_id": "session-1"
-  }
-}
-```
-
 ### Evaluate Common Lisp:
 
 ```json
 {
-  "tool": "eval-cl",
+  "tool": "eval_cl",
   "arguments": {
-    "code": "(defun fib (n) (if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2)))))",
-    "session_id": "cl-session-1"
+    "code": "(+ 1 2 3)"
   }
 }
 ```
 
-### Bridge ACL2 → CL:
+### Define and call a function:
 
 ```json
 {
-  "tool": "bridge-acl2-to-cl",
+  "tool": "define_function",
   "arguments": {
-    "data": "(cons 1 (cons 2 (cons 3 nil)))",
-    "acl2-session-id": "session-1",
-    "cl-session-id": "cl-session-1"
+    "name": "fib",
+    "lambda_list": "(n)",
+    "body": "(if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2))))"
   }
+}
+```
+
+```json
+{
+  "tool": "eval_cl",
+  "arguments": {
+    "code": "(fib 10)"
+  }
+}
+```
+
+### Reset to fresh state:
+
+```json
+{
+  "tool": "reset_cl",
+  "arguments": {}
 }
 ```
 
