@@ -1,118 +1,117 @@
 
 (in-package #:acl2-mcp-bridge)
 
-;; ACL2 Session Structure
-(defstruct acl2-session
-  (id (string-downcase (princ-to-string (uuid:make-v4-uuid))) :type string)
-  (acl2-process nil)
-  (input-stream nil)
-  (output-stream nil)
-  (error-stream nil)
-  (state nil)
-  (created-at (local-time:now))
-  (last-activity (local-time:now))
-  (event-history '())
-  (output-capture (make-string-output-stream))
-  (lock (bt:make-lock "acl2-session")))
-
-(defparameter *acl2-sessions* (make-hash-table :test 'equal))
-(defparameter *session-counter* 0)
-
-;; Path to ACL2 executable or wrapper; configure via initialize-acl2-interface.
-(defparameter *acl2-executable* "acl2")
+;; ACL2 Interface - Direct evaluation in running ACL2
+;;
+;; This code runs INSIDE ACL2, so we have direct access to ACL2 symbols
+;; and *the-live-state*. Similar to centaur/bridge.
 
 (defun initialize-acl2-interface (&optional acl2-path)
-  "Configure the ACL2 interface executable path.
+  "No-op - we're already running inside ACL2."
+  (declare (ignore acl2-path))
+  t)
 
-If ACL2-PATH is nil, fall back to $ACL2_PATH or the literal 'acl2'.
-Returns the chosen path so callers can log or validate it."
-  (setf *acl2-executable* (or acl2-path (uiop:getenv "ACL2_PATH") "acl2"))
-  *acl2-executable*)
-
-(defun create-acl2-session (&key id)
-  "Create and register a new ACL2 session.
-
-If ID is supplied and already exists, signal an error. Actual ACL2 process
-startup should be wired here when integration is added."
-  (let* ((id (or id (string-downcase (princ-to-string (uuid:make-v4-uuid)))))
-         (existing (gethash id *acl2-sessions*)))
-    (when existing
-      (error "ACL2 session ~A already exists" id))
-    (let ((session (make-acl2-session :id id
-                                      :created-at (local-time:now)
-                                      :last-activity (local-time:now))))
-      (setf (gethash (acl2-session-id session) *acl2-sessions*) session)
-      session)))
-
-(defun get-acl2-session (id)
-  "Retrieve an ACL2 session by ID."
-  (gethash id *acl2-sessions*))
-
-(defun ensure-acl2-session (id)
-  "Get or create an ACL2 session."
-  (or (get-acl2-session id)
-      (create-acl2-session)))
-
-(defun start-acl2-session (&key session-id)
-  "Start a new ACL2 session and return its ID.
-
-If SESSION-ID is provided and exists, an error is signaled to avoid silent
-reuse. Hook ACL2 process startup here when integration is implemented."
-  (acl2-session-id (create-acl2-session :id session-id)))
-
-(defun stop-acl2-session (session-id)
-  "Stop and remove an ACL2 session. Returns T if removed, NIL if not found.
-
-When ACL2 integration is added, close process streams here."
-  (when (gethash session-id *acl2-sessions*)
-    ;; TODO: close ACL2 process/streams when wired
-    (remhash session-id *acl2-sessions*)
-    t))
-
-(defun acl2-eval (form &key (session-id nil) main-thread-p)
+(defun acl2-eval (form-string &key session-id main-thread-p)
   "Evaluate a form in ACL2.
 
-   If main-thread-p is true, the evaluation is serialized through the main 
-   thread (required for memoization safety).
+   FORM-STRING is a string containing an s-expression.
+   If MAIN-THREAD-P is true, use bridge::in-main-thread for memoization safety.
 
-   Returns (values result error-p output-string)"
-  (declare (ignore form session-id main-thread-p))
-  (log:info "ACL2-EVAL stub: implement actual ACL2 integration")
-  (values nil nil ""))
+   Returns (values result error-p error-message)"
+  (declare (ignore session-id))
+  (handler-case
+      (let* ((form (read-from-string form-string))
+             (wrapped-form `(let ((acl2::state acl2::*the-live-state*))
+                              (declare (ignorable acl2::state))
+                              ,form)))
+        (if main-thread-p
+            (values (eval `(bridge::in-main-thread ,wrapped-form)) nil nil)
+            (values (eval wrapped-form) nil nil)))
+    (error (e)
+      (values nil t (format nil "~A" e)))))
 
-(defun acl2-event (form &key (session-id nil))
+(defun acl2-query (form-string &key session-id)
+  "Query ACL2 for a computation result.
+   Returns (values result error-p error-message)"
+  (acl2-eval form-string :session-id session-id))
+
+(defun acl2-event (form-string &key session-id)
   "Submit an ACL2 event (defun, defthm, etc).
-
    Returns (values success-p error-message output-string)"
-  (declare (ignore form session-id))
-  (log:info "ACL2-EVENT stub: implement actual ACL2 integration")
-  (values t nil ""))
+  (declare (ignore session-id))
+  (let ((output (make-string-output-stream)))
+    (handler-case
+        (let* ((form (read-from-string form-string))
+               (*standard-output* output)
+               (result (eval `(let ((acl2::state acl2::*the-live-state*))
+                                (declare (ignorable acl2::state))
+                                ,form))))
+          (declare (ignore result))
+          (values t nil (get-output-stream-string output)))
+      (error (e)
+        (values nil (format nil "~A" e) (get-output-stream-string output))))))
 
-(defun acl2-query (form &key (session-id nil))
-  "Query ACL2 for a computation result (non-event).
+(defun acl2-check-theorem (conjecture &key session-id hints)
+  "Check if a conjecture is provable using thm."
+  (declare (ignore session-id))
+  (let ((output (make-string-output-stream)))
+    (handler-case
+        (let* ((form (read-from-string conjecture))
+               (thm-form (if hints
+                             `(acl2::thm ,form :hints ,(read-from-string hints))
+                             `(acl2::thm ,form)))
+               (*standard-output* output))
+          (eval `(let ((acl2::state acl2::*the-live-state*))
+                   (declare (ignorable acl2::state))
+                   ,thm-form))
+          (values t nil (get-output-stream-string output)))
+      (error (e)
+        (values nil (format nil "~A" e) (get-output-stream-string output))))))
 
-   Returns (values result error-p output-string)"
-  (declare (ignore form session-id))
-  (log:info "ACL2-QUERY stub: implement actual ACL2 integration")
-  (values nil nil ""))
-
-(defun acl2-check-theorem (conjecture &key (session-id nil) hints)
-  "Check if a conjecture is provable."
-  (declare (ignore conjecture session-id hints))
-  (values nil "Not implemented" ""))
-
-(defun acl2-admit (event &key (session-id nil))
+(defun acl2-admit (event &key session-id)
   "Admit an event to the ACL2 world."
-  (declare (ignore event session-id))
-  (values nil "Not implemented" ""))
+  (acl2-event event :session-id session-id))
 
-(defun acl2-verify-guards (function &key (session-id nil))
+(defun acl2-verify-guards (function &key session-id)
   "Verify guards for a function."
-  (declare (ignore function session-id))
-  (values nil "Not implemented" ""))
+  (declare (ignore session-id))
+  (let ((output (make-string-output-stream)))
+    (handler-case
+        (let* ((fn-sym (read-from-string function))
+               (*standard-output* output))
+          (eval `(let ((acl2::state acl2::*the-live-state*))
+                   (declare (ignorable acl2::state))
+                   (acl2::verify-guards ,fn-sym)))
+          (values t nil (get-output-stream-string output)))
+      (error (e)
+        (values nil (format nil "~A" e) (get-output-stream-string output))))))
+
+;; Session management is simplified - we're in a single ACL2 process
+;; Sessions are just for tracking MCP client state, not separate ACL2 instances
+
+(defstruct acl2-session
+  (id (string-downcase (princ-to-string (uuid:make-v4-uuid))) :type string)
+  (created-at (local-time:now))
+  (last-activity (local-time:now)))
+
+(defparameter *acl2-sessions* (make-hash-table :test 'equal))
+
+(defun start-acl2-session (&key session-id)
+  "Register a new session (for MCP client tracking)."
+  (let* ((id (or session-id (string-downcase (princ-to-string (uuid:make-v4-uuid)))))
+         (session (make-acl2-session :id id)))
+    (setf (gethash id *acl2-sessions*) session)
+    id))
+
+(defun get-acl2-session (id)
+  (gethash id *acl2-sessions*))
+
+(defun stop-acl2-session (session-id)
+  "Remove a session."
+  (remhash session-id *acl2-sessions*))
 
 (defun list-acl2-sessions ()
-  "List all active ACL2 sessions."
+  "List all registered sessions."
   (loop for session being the hash-values of *acl2-sessions*
         collect (list :id (acl2-session-id session)
                       :created (acl2-session-created-at session)
