@@ -94,6 +94,9 @@ start fresh without restarting the server.")
         (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
         (list (make-instance 'text-content :text msg)))))
 
+;; Note: Session termination is handled via HTTP DELETE per MCP spec, not as a tool.
+;; See: https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#session-management
+
 
 (defun start-mcp-server (&key (transport :stdio) host port)
   "Start the MCP server with per-client session support.
