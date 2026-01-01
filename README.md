@@ -148,7 +148,8 @@ acl2-mcp-bridge/
 ├── session-transport.lisp  # MCP-compliant HTTP session handling
 ├── sessions.lisp           # Per-client session & package management
 ├── acl2-interface.lisp     # ACL2 process management (stub)
-├── bridge-protocol.lisp    # Legacy Bridge protocol server
+├── bridge-sbcl.lisp        # ACL2 Bridge protocol (SBCL port)
+├── bridge-protocol.lisp    # Legacy Bridge protocol server (deprecated)
 ├── message-format.lisp     # Bridge message framing
 ├── tools-acl2.lisp         # ACL2 MCP tools
 ├── tools-cl.lisp           # (reserved)
@@ -156,8 +157,65 @@ acl2-mcp-bridge/
 ├── threading-utils.lisp    # Thread utilities
 └── tests/
     ├── startup-tests.lisp  # Unit tests (FiveAM)
-    └── mcp-test.sh         # Integration tests
+    ├── mcp-test.sh         # Integration tests
+    └── test-bridge-full.sh # ACL2 Bridge protocol tests
 ```
+
+## ACL2 Bridge Protocol
+
+The ACL2 Bridge protocol is a simple TCP-based protocol for connecting external tools (Python, Ruby, etc.) to ACL2. This implementation is an SBCL port of the original CCL-only code from `centaur/bridge`.
+
+### Protocol Format
+
+Messages use a simple text format:
+```
+TYPE LENGTH\n
+CONTENT\n
+```
+
+**Command Types**: `LISP`, `LISP_MV`, `JSON`, `JSON_MV`
+**Response Types**: `ACL2_BRIDGE_HELLO`, `READY`, `RETURN`, `ERROR`, `STDOUT`
+
+### Starting the Bridge Server
+
+```lisp
+;; From ACL2 (after loading bridge-sbcl.lisp)
+(bridge::start-fn 55433 nil nil nil)  ; TCP port 55433
+```
+
+### Python Client Example
+
+```python
+import socket
+
+sock = socket.socket()
+sock.connect(("127.0.0.1", 55433))
+
+# Read HELLO and READY
+# ...
+
+# Send command
+cmd = "(+ 1 2)"
+sock.send(f"LISP {len(cmd)}\n{cmd}\n".encode())
+
+# Read RETURN message with result "3"
+```
+
+### CCL → SBCL Portability Notes
+
+The original `centaur/bridge/bridge-raw.lsp` uses CCL-specific APIs. Key translations:
+
+| CCL | SBCL/Portable |
+|-----|---------------|
+| `ccl::make-lock` | `bt:make-lock` |
+| `ccl::with-lock-grabbed` | `bt:with-lock-held` |
+| `ccl::make-semaphore` | `bt:make-semaphore` |
+| `ccl::wait-on-semaphore` | `bt:wait-on-semaphore` |
+| `ccl::process-run-function` | `bt:make-thread` |
+| `ccl::make-socket` | `usocket:socket-listen` |
+| `ccl::accept-connection` | `usocket:socket-accept` |
+| `ccl::without-interrupts` | `sb-sys:without-interrupts` |
+| `cl-user::fundamental-character-output-stream` | `trivial-gray-streams:fundamental-character-output-stream` |
 
 ## Architecture
 

@@ -267,7 +267,7 @@ Worker-name is sent in the hello message for client identification."
   (let ((len (length content)))
     (write-string type stream)
     (write-char #\Space stream)
-    (prin1 len stream)
+    (write-string (princ-to-string len) stream)
     (write-char #\Newline stream)
     (write-string content stream)
     (write-char #\Newline stream)
