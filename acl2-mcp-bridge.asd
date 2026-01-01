@@ -9,6 +9,7 @@
                "uiop"
                "usocket"
                "bordeaux-threads"
+               "trivial-gray-streams"
                "local-time"
                "cl-ppcre"
                "yason"

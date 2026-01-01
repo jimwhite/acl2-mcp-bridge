@@ -46,7 +46,18 @@
    #:get-acl2-session
    #:*acl2-sessions*
    #:initialize-acl2-interface
-   #:*acl2-executable*))
+   #:*acl2-executable*
+   
+   ;; Bridge protocol 
+   #:start-bridge-server
+   #:stop-bridge-server))
 
 (in-package #:acl2-mcp-bridge)
+
+;; Define the BRIDGE package for compatibility with the centaur/bridge protocol.
+;; Python clients (acl2_bridge) wrap all commands in (bridge::in-main-thread ...)
+(defpackage #:bridge
+  (:use)  ; No uses - symbols accessed via bridge:: prefix
+  (:export #:in-main-thread
+           #:try-in-main-thread))
 

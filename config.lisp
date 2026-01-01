@@ -2,7 +2,8 @@
 (in-package #:acl2-mcp-bridge)
 
 ;; ACL2 Bridge Configuration
-(defparameter *bridge-port* 13721)
+;; Port 55433 is the standard ACL2 Bridge port (for Python acl2_bridge compatibility)
+(defparameter *bridge-port* 55433)
 (defparameter *bridge-socket-path* nil)  ;; Unix domain socket if set
 (defparameter *bridge-listen-address* "127.0.0.1")
 
