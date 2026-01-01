@@ -37,6 +37,113 @@ acl2-mcp-bridge/
 - **CL tools**: eval, load-file, define-function, list-sessions.
 - **Thread-aware**: Hooks for main-thread ACL2 safety; bridge server uses per-connection threads.
 
+# ACL2 MCP Bridge Server (`acl2-mcp-bridge`)
+
+A unified Model Context Protocol (MCP) server for `ACL2` built with `40ants-mcp` in Common Lisp. Combines features from `ACL2 Bridge`, `septract/acl2-mcp`, and native CL capabilities.
+
+## Project Structure
+
+```text
+acl2-mcp-bridge/
+├── src/
+│   ├── acl2-mcp-bridge.asd          # ASDF system definition
+│   ├── packages.lisp                # Package definitions
+│   ├── core/
+│   │   ├── acl2-interface.lisp      # ACL2 interaction layer
+│   │   ├── session-management.lisp  # Persistent session support
+│   │   └── error-handling.lisp      # Robust error management
+│   ├── mcp/
+│   │   ├── server.lisp              # MCP server setup (40ants-mcp)
+│   │   ├── tools.lisp               # MCP tool definitions
+│   │   ├── resources.lisp           # Resource endpoints
+│   │   └── prompts.lisp             # Prompt templates
+│   └── cl-repl/
+│       ├── evaluator.lisp           # Common Lisp REPL integration
+│       └── cl-bridge.lisp           # Bridge to native CL features
+├── examples/
+│   └── config-example.json          # MCP client configuration
+└── README.md
+```
+
+## Key Features
+
+### 1. ACL2 Theorem Proving Tools (from septract/acl2-mcp)
+- **check-theorem** - Verify a specific theorem
+- **admit** - Admit an event (function/theorem)
+- **query-event** - Retrieve event definitions and properties
+- **verify-guards** - Check guard conditions
+- **prove-theorem** - Attempt automated proofs
+- **check-book** - Validate an entire ACL2 book
+- **get-event-history** - Retrieve proof history
+- **undo-to-point** - Revert to earlier state
+
+### 2. Session Management (from ACL2 Bridge)
+- **start-session** - Create persistent ACL2 session
+- **end-session** - Clean up session
+- **session-state** - Query current session state
+- **list-sessions** - Get all active sessions
+- **session-output** - Capture ACL2 output
+
+### 3. Common Lisp REPL Integration (native + bridge)
+- **eval-cl** - Evaluate Common Lisp expressions
+- **cl-repl-session** - Persistent CL REPL session
+- **load-file** - Load Lisp source files
+- **define-function** - Define CL functions dynamically
+- **query-cl-package** - Introspect packages
+
+### 4. Bridge & Interop Tools
+- **bridge-acl2-to-cl** - Send ACL2 data to CL
+- **bridge-cl-to-acl2** - Send CL data to ACL2
+- **acl2-cl-eval** - Cross-language evaluation
+- **get-dependencies** - Analyze theorem dependencies
+
+### 5. Code Analysis & Transformation
+- **extract-lemmas** - Get supporting lemmas
+- **suggest-proofs** - AI-assisted proof suggestions
+- **dependency-graph** - Visualize proof dependencies
+- **trace-execution** - Debug theorem proving
+
+
+## Usage Examples
+
+### Proving a Theorem
+
+```json
+{
+  "tool": "admit",
+  "arguments": {
+    "code": "(defthm append-assoc (equal (append (append x y) z) (append x (append y z))))",
+    "session_id": "session-1"
+  }
+}
+```
+
+### Evaluating Common Lisp
+
+```json
+{
+  "tool": "eval-cl",
+  "arguments": {
+    "code": "(defun fib (n) (if (<= n 1) n (+ (fib (- n 1)) (fib (- n 2)))))",
+    "session_id": "cl-session-1"
+  }
+}
+```
+
+### Cross-Language Bridge
+
+```json
+{
+  "tool": "bridge-acl2-to-cl",
+  "arguments": {
+    "data": "(cons 1 (cons 2 (cons 3 nil)))",
+    "acl2-session-id": "session-1",
+    "cl-session-id": "cl-session-1"
+  }
+}
+```
+
+
 ## Install
 
 ```bash
