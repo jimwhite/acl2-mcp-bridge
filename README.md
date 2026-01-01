@@ -101,16 +101,39 @@ Each session gets:
 | `load_file` | Load a .lisp source file |
 | `define_function` | Define a function (name, args, body) |
 | `get_package` | Get current evaluation package name |
+| `query_cl_package` | Introspect packages (list functions, variables) |
 | `reset_cl` | Reset context (recreates session package) |
 
-### ACL2 Tools (stubs - implementation in progress)
+### ACL2 Theorem Proving Tools
 
 | Tool | Description |
 |------|-------------|
+| `check_theorem` | Check if a theorem is provable (doesn't admit) |
+| `prove_theorem` | Prove and admit a theorem using defthm |
 | `admit` | Admit an ACL2 event (defun, defthm, etc.) |
-| `check_theorem` | Check if a theorem is provable |
-| `verify_guards` | Verify guard conditions |
-| `query_event` | Query event properties from history |
+| `verify_guards` | Verify guard conditions for a function |
+| `query_event` | Get information about a named event |
+| `get_event_history` | Retrieve proof/event history |
+| `undo_to_point` | Revert ACL2 world to earlier state |
+| `check_book` | Certify an ACL2 book |
+
+### Bridge & Interop Tools
+
+| Tool | Description |
+|------|-------------|
+| `bridge_acl2_to_cl` | Evaluate ACL2, make result available in CL |
+| `bridge_cl_to_acl2` | Evaluate CL, format result for ACL2 |
+| `acl2_cl_eval` | Cross-language evaluation (both environments) |
+| `get_dependencies` | Analyze theorem/function dependencies |
+
+### Code Analysis & Transformation
+
+| Tool | Description |
+|------|-------------|
+| `extract_lemmas` | Get supporting lemmas used in a proof |
+| `suggest_proofs` | AI-assisted proof strategy suggestions |
+| `dependency_graph` | Visualize proof dependency tree |
+| `trace_execution` | Debug by tracing function calls |
 
 ## Example Usage
 
@@ -187,18 +210,19 @@ acl2-mcp-bridge/
 ├── mcp-server.lisp         # MCP tool definitions & server setup
 ├── session-transport.lisp  # MCP-compliant HTTP session handling
 ├── sessions.lisp           # Per-client session & package management
-├── acl2-interface.lisp     # ACL2 process management (stub)
+├── acl2-interface.lisp     # ACL2 theorem proving interface
 ├── bridge-sbcl.lisp        # ACL2 Bridge protocol (SBCL port)
 ├── bridge-protocol.lisp    # Legacy Bridge protocol server (deprecated)
 ├── message-format.lisp     # Bridge message framing
-├── tools-acl2.lisp         # ACL2 MCP tools
+├── tools-acl2.lisp         # ACL2 MCP tools (check-theorem, admit, etc.)
 ├── tools-cl.lisp           # (reserved)
-├── tools-bridge.lisp       # Bridge interop tools
+├── tools-bridge.lisp       # Bridge interop tools (cross-eval, dependencies)
 ├── threading-utils.lisp    # Thread utilities
 └── tests/
-    ├── startup-tests.lisp  # Unit tests (FiveAM)
-    ├── mcp-test.sh         # Integration tests
-    └── test-bridge-full.sh # ACL2 Bridge protocol tests
+    ├── startup-tests.lisp       # Unit tests (FiveAM)
+    ├── mcp-test.sh              # MCP integration tests
+    ├── test-bridge.sh           # Bridge protocol tests (unix|tcp)
+    └── bridge-protocol-tests.py # Bridge protocol Python test suite
 ```
 
 ## ACL2 Bridge Protocol

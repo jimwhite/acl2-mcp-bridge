@@ -92,6 +92,18 @@ start fresh without restarting the server.")
         (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
         (list (make-instance 'text-content :text msg)))))
 
+(define-tool (acl2-mcp-tools query-cl-package) (&optional package-name)
+  (:summary "Introspect a Common Lisp package")
+  (:description "List symbols, functions, and variables in a package. Without arguments,
+introspects the current session package. Useful for exploring available definitions.")
+  (:param package-name string "Package name to introspect (optional, defaults to current)")
+  (:result (soft-list-of text-content))
+  (multiple-value-bind (info error-p error-msg)
+      (cl-query-package package-name)
+    (if error-p
+        (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
+        (list (make-instance 'text-content :text info)))))
+
 ;; Note: Session termination is handled via HTTP DELETE per MCP spec, not as a tool.
 ;; See: https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#session-management
 

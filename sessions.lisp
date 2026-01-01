@@ -191,3 +191,42 @@ Returns (values message error-p error-message)."
         (values "Evaluation context reset to initial state" nil nil))
     (error (e)
       (values nil t (princ-to-string e)))))
+
+(defun cl-query-package (&optional package-name (session *current-session*))
+  "Introspect a package and return information about its contents.
+Returns (values info-string error-p error-message)."
+  (handler-case
+      (let* ((pkg (if package-name
+                      (or (find-package (string-upcase package-name))
+                          (return-from cl-query-package 
+                            (values nil t (format nil "Package ~A not found" package-name))))
+                      (if session
+                          (cl-session-eval-package session)
+                          *package*)))
+             (functions '())
+             (macros '())
+             (variables '())
+             (constants '()))
+        ;; Collect symbols
+        (do-symbols (sym pkg)
+          (when (eq (symbol-package sym) pkg)  ; Only symbols owned by this package
+            (cond
+              ((constantp sym) (push (symbol-name sym) constants))
+              ((and (boundp sym) (not (fboundp sym))) (push (symbol-name sym) variables))
+              ((macro-function sym) (push (symbol-name sym) macros))
+              ((fboundp sym) (push (symbol-name sym) functions)))))
+        (values (format nil "Package: ~A~%~
+                            Uses: ~{~A~^, ~}~%~
+                            Functions (~D): ~{~A~^, ~}~%~
+                            Macros (~D): ~{~A~^, ~}~%~
+                            Variables (~D): ~{~A~^, ~}~%~
+                            Constants (~D): ~{~A~^, ~}"
+                       (package-name pkg)
+                       (mapcar #'package-name (package-use-list pkg))
+                       (length functions) (sort functions #'string<)
+                       (length macros) (sort macros #'string<)
+                       (length variables) (sort variables #'string<)
+                       (length constants) (sort constants #'string<))
+                nil nil))
+    (error (e)
+      (values nil t (princ-to-string e)))))

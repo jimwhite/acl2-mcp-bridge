@@ -13,8 +13,8 @@ SERVER_PID=""
 RESULTS_FILE=$(mktemp)
 echo "0 0" > "$RESULTS_FILE"
 
-# Which server to test: "readme" for simple example, "bridge" for full acl2-mcp-bridge
-SERVER_TYPE="${SERVER_TYPE:-readme}"
+# Which server to test: "bridge" for full acl2-mcp-bridge, "readme" for simple example
+SERVER_TYPE="${SERVER_TYPE:-bridge}"
 
 cleanup() {
   if [ -n "$SERVER_PID" ]; then
@@ -106,13 +106,17 @@ echo "▶ Starting MCP server ($SERVER_TYPE)..."
 cd "$PROJECT_DIR"
 
 if [ "$SERVER_TYPE" = "bridge" ]; then
-  # Start full acl2-mcp-bridge server
-  sbcl --noinform --disable-debugger \
-    --eval "(require :asdf)" \
-    --eval "(asdf:load-system :acl2-mcp-bridge)" \
-    --eval "(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port $PORT)" \
-    --eval "(loop (sleep 1))" \
-    > /tmp/mcp-server.log 2>&1 &
+  # Start full acl2-mcp-bridge server inside ACL2
+  cat > /tmp/start-mcp-server.lisp << EOF
+:q
+(load "~/quicklisp/setup.lisp")
+(ql:quickload '(:bordeaux-threads :usocket :trivial-gray-streams :40ants-mcp) :silent t)
+(push (truename "$PROJECT_DIR/") asdf:*central-registry*)
+(asdf:load-system :acl2-mcp-bridge)
+(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port $PORT)
+(loop (sleep 1000))
+EOF
+  acl2 < /tmp/start-mcp-server.lisp > /tmp/mcp-server.log 2>&1 &
 else
   # Start simple readme-basic-server
   MCP_PORT=$PORT sbcl --noinform --disable-debugger --script tests/readme-basic-server.lisp > /tmp/mcp-server.log 2>&1 &

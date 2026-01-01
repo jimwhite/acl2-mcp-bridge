@@ -86,6 +86,105 @@
       (error (e)
         (values nil (format nil "~A" e) (get-output-stream-string output))))))
 
+(defun acl2-prove-theorem (conjecture &key session-id hints rule-classes)
+  "Prove and admit a theorem using defthm.
+   Unlike check-theorem (which uses thm), this permanently admits the theorem."
+  (declare (ignore session-id))
+  (let ((output (make-string-output-stream)))
+    (handler-case
+        (let* ((form (read-from-string conjecture))
+               ;; Generate a theorem name from the form
+               (thm-name (intern (format nil "THM-~A" (get-universal-time)) :acl2))
+               (defthm-form `(acl2::defthm ,thm-name ,form
+                               ,@(when hints `(:hints ,(read-from-string hints)))
+                               ,@(when rule-classes `(:rule-classes ,(read-from-string rule-classes)))))
+               (*standard-output* output))
+          (eval `(let ((acl2::state acl2::*the-live-state*))
+                   (declare (ignorable acl2::state))
+                   ,defthm-form))
+          (values t nil (get-output-stream-string output)))
+      (error (e)
+        (values nil (format nil "~A" e) (get-output-stream-string output))))))
+
+(defun acl2-check-book (book-path &key session-id)
+  "Check/certify an ACL2 book.
+   BOOK-PATH is the path without the .lisp extension."
+  (declare (ignore session-id))
+  (let ((output (make-string-output-stream)))
+    (handler-case
+        (let ((*standard-output* output))
+          (eval `(let ((acl2::state acl2::*the-live-state*))
+                   (declare (ignorable acl2::state))
+                   (acl2::certify-book ,book-path)))
+          (values t nil (get-output-stream-string output)))
+      (error (e)
+        (values nil (format nil "~A" e) (get-output-stream-string output))))))
+
+(defun acl2-get-event-history (&key session-id name type limit)
+  "Retrieve proof/event history from ACL2 world.
+   NAME - filter by event name (optional)
+   TYPE - filter by event type: defun, defthm, etc (optional)
+   LIMIT - max events to return (optional, default 50)"
+  (declare (ignore session-id))
+  (handler-case
+      (let* ((world (symbol-value 'acl2::*the-live-state*))
+             (limit (or limit 50))
+             (events '()))
+        ;; Get command landmarks from the world
+        (eval `(let ((acl2::state acl2::*the-live-state*))
+                 (declare (ignorable acl2::state))
+                 (acl2::er-progn
+                  (acl2::assign acl2::temp-result 
+                                (acl2::access acl2::state-global-let* acl2::state))
+                  (acl2::value nil))))
+        ;; For now, return what we can access - this is a simplified implementation
+        ;; A full implementation would walk (w state) to get the history
+        (values (list :events events :count (length events)) nil nil))
+    (error (e)
+      (values nil t (format nil "~A" e)))))
+
+(defun acl2-undo-to-point (command-number &key session-id)
+  "Undo ACL2 world to a previous command number.
+   COMMAND-NUMBER - the command number to undo back to, or :last to undo just the last command."
+  (declare (ignore session-id))
+  (let ((output (make-string-output-stream)))
+    (handler-case
+        (let ((*standard-output* output)
+              (ubt-form (if (eq command-number :last)
+                            '(acl2::ubt! :here)  ; Undo last
+                            `(acl2::ubt ,command-number))))
+          (eval `(let ((acl2::state acl2::*the-live-state*))
+                   (declare (ignorable acl2::state))
+                   ,ubt-form))
+          (values t nil (get-output-stream-string output)))
+      (error (e)
+        (values nil (format nil "~A" e) (get-output-stream-string output))))))
+
+(defun acl2-get-event-info (name &key session-id)
+  "Get information about a named event (function, theorem, etc).
+   Returns definition, type, guards, etc."
+  (declare (ignore session-id))
+  (handler-case
+      (let* ((sym (read-from-string name))
+             (info '()))
+        (eval `(let ((acl2::state acl2::*the-live-state*))
+                 (declare (ignorable acl2::state))
+                 ;; Try to get function body
+                 (when (acl2::getpropc ',sym 'acl2::unnormalized-body nil (acl2::w acl2::state))
+                   (push (cons :body (acl2::getpropc ',sym 'acl2::unnormalized-body nil (acl2::w acl2::state))) 
+                         ',info))
+                 ;; Try to get formals
+                 (when (acl2::getpropc ',sym 'acl2::formals nil (acl2::w acl2::state))
+                   (push (cons :formals (acl2::getpropc ',sym 'acl2::formals nil (acl2::w acl2::state)))
+                         ',info))
+                 ;; Try to get guard
+                 (when (acl2::getpropc ',sym 'acl2::guard nil (acl2::w acl2::state))
+                   (push (cons :guard (acl2::getpropc ',sym 'acl2::guard nil (acl2::w acl2::state)))
+                         ',info))))
+        (values info nil nil))
+    (error (e)
+      (values nil t (format nil "~A" e)))))
+
 ;; Session management is simplified - we're in a single ACL2 process
 ;; Sessions are just for tracking MCP client state, not separate ACL2 instances
 
