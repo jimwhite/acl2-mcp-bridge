@@ -26,6 +26,14 @@ Build a reliable ACL2 bridge server that supports the legacy Bridge protocol, Mo
 5. **MCP layer**: Define OpenRPC schemas once, register tools consistently (ACL2, CL, bridge), and ensure responses include structured success/error data.
 6. **Threading**: Implement `run-in-main-thread` using a worker channel or condition variable to serialize ACL2 actions when required.
 
+## ACL2 Adapter + Threading Design Draft
+- **Executable discovery**: Use `initialize-acl2-interface` to record the ACL2 binary path (arg > `$ACL2_PATH` > default "acl2"). Expose `*acl2-executable*` for process launch.
+- **Bridge reuse**: Lift the proven worker loop and framing from the ACL2 Bridge book at `/home/acl2/books/centaur/bridge/` (notably `bridge-raw.lsp`/`top.lisp`) instead of re-implementing nld/ld plumbing. Keep message framing identical (type length newline, content newline) and add round-trip tests.
+- **Process model**: Start a managed ACL2 process per ACL2 session or share one with serialized access. Capture stdout/stderr via pipes; surface outputs in tool responses. Favor a single ACL2 instance initially to reduce complexity.
+- **Thread serialization**: Back `run-in-main-thread` with a dedicated executor thread and a bounded queue (e.g., `bt:condition-variable` + `bt:mutex`). Bridge and MCP requests enqueue ACL2 forms; executor runs them in ACL2-safe context, returning values/output.
+- **Data flow**: For ACL2 events (`defun`, `defthm`), feed forms through ACL2's `ld` or Bridge helpers; for queries, evaluate within the session, returning structured success/error plus captured output. Avoid `read-from-string` ambiguity by controlling *package* and print/read settings.
+- **Testing strategy**: Start with a fake ACL2 backend (deterministic responses) to drive tool/bridge behavior; then gate real ACL2 integration tests that spawn the executable and assert round-trip behavior on small forms.
+
 ## TDD Plan
 - Adopt a Common Lisp test library (e.g., FiveAM) and wire it into ASDF and CI later.
 - Add fast unit tests for:

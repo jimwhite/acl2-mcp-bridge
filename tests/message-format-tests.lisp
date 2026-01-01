@@ -10,6 +10,7 @@
          (payload (get-output-stream-string out))
          (in (make-string-input-stream payload))
          (msg (read-bridge-message in)))
+    (is (char= #\Newline (char payload (1- (length payload)))))
     (is (equal "HELLO" (car msg)))
     (is (equal "world" (cdr msg)))))
 
@@ -19,6 +20,7 @@
          (payload (get-output-stream-string out))
          (in (make-string-input-stream payload))
          (msg (read-bridge-message in)))
+    (is (char= #\Newline (char payload (1- (length payload)))))
     (is (equal "RETURN" (car msg)))
     (is (equal "42" (cdr msg)))))
 

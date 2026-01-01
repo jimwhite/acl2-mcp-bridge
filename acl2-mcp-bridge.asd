@@ -34,6 +34,7 @@
   :components ((:module "tests"
                 :serial t
                 :components ((:file "package")
+                             (:file "startup-tests")
                              (:file "message-format-tests")
                              (:file "run-tests"))))
   :perform (test-op (op c)

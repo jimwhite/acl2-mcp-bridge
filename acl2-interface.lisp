@@ -18,6 +18,17 @@
 (defparameter *acl2-sessions* (make-hash-table :test 'equal))
 (defparameter *session-counter* 0)
 
+;; Path to ACL2 executable or wrapper; configure via initialize-acl2-interface.
+(defparameter *acl2-executable* "acl2")
+
+(defun initialize-acl2-interface (&optional acl2-path)
+  "Configure the ACL2 interface executable path.
+
+If ACL2-PATH is nil, fall back to $ACL2_PATH or the literal "acl2".
+Returns the chosen path so callers can log or validate it."
+  (setf *acl2-executable* (or acl2-path (uiop:getenv "ACL2_PATH") "acl2"))
+  *acl2-executable*)
+
 (defun create-acl2-session ()
   "Create a new ACL2 session."
   (let ((session (make-acl2-session)))

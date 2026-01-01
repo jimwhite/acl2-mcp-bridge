@@ -8,6 +8,8 @@
    #:start-server
    #:start-both
    #:stop-server
+    #:initialize-acl2-interface
+    #:*acl2-executable*
    #:*bridge-server*
    #:*mcp-server*
    #:*acl2-sessions*

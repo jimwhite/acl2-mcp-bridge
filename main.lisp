@@ -1,10 +1,11 @@
 
 (in-package #:acl2-mcp-bridge)
 
+
 (defparameter *bridge-server* nil)
 (defparameter *mcp-server* nil)
 
-(defun start-server (&key (protocol :bridge) (transport :stdio) port)
+(defun start-server (&key (protocol :bridge) (transport :stdio) port host acl2-path)
   "Start the server with specified protocol.
 
    :protocol :bridge   - ACL2 Bridge protocol (TCP, port 13721)
@@ -13,29 +14,32 @@
    :transport :stdio   - Standard input/output (for MCP)
    :transport :http    - HTTP server (for MCP, requires :port)
 
-   :port               - Port number (for Bridge or MCP HTTP)"
+   :port               - Port number (for Bridge or MCP HTTP)
+   :host               - Host binding (HTTP transport only)
+   :acl2-path          - Optional ACL2 executable path"
   (case protocol
     (:bridge
-     (setf *bridge-server* 
-           (start-bridge-server :port (or port *bridge-port*)))
+     (setf *bridge-server*
+       (start-bridge-server :port (or port *bridge-port*)))
      (log:info "ACL2 Bridge server started on port ~A" (or port *bridge-port*))
      *bridge-server*)
     (:mcp
+     (initialize-acl2-interface acl2-path)
      (log:info "MCP server starting via 40ants-mcp (~A transport)" transport)
-     (setf *mcp-server* 
-           (40ants-mcp/server/definition:start-server
-            (list #'acl2-api #'cl-api #'bridge-api)
-            :transport transport
-            :port port))
+     (setf *mcp-server*
+       (start-mcp-server :transport transport :host host :port port))
      *mcp-server*)
     (otherwise
      (error "Unknown protocol: ~A" protocol))))
 
-(defun start-both (&key (bridge-port *bridge-port*) (mcp-transport :stdio))
-  "Start both Bridge and MCP servers (multi-protocol support)."
-  (start-server :protocol :bridge :port bridge-port)
-  (start-server :protocol :mcp :transport mcp-transport)
-  (log:info "Both Bridge and MCP servers running"))
+(defun start-both (&key (bridge-port *bridge-port*) (mcp-transport :stdio) host acl2-path)
+  "Start both Bridge and MCP servers (multi-protocol support).
+
+Returns two values: bridge server and MCP server."
+  (let ((bridge (start-server :protocol :bridge :port bridge-port))
+        (mcp (start-server :protocol :mcp :transport mcp-transport :host host :acl2-path acl2-path)))
+    (log:info "Both Bridge and MCP servers running")
+    (values bridge mcp)))
 
 (defun stop-server (&key (protocol :all))
   "Stop the server(s).
@@ -50,7 +54,7 @@
        (setf *bridge-server* nil)))
     (:mcp
      (when *mcp-server*
-       (40ants-mcp/server/definition:stop-server *mcp-server*)
+       (stop-mcp-server *mcp-server*)
        (setf *mcp-server* nil)))
     (:all
      (stop-server :protocol :bridge)
