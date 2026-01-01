@@ -165,3 +165,29 @@
       (acl2-mcp-bridge::start-mcp-server :transport :http :host "0.0.0.0" :port 4242)
       (is (not (null loop-called)))
       (is (typep loop-called 'session-http-transport)))))
+(test session-http-transport-lack-app
+  "Test that the session-aware Lack app handles requests without crashing."
+  (let ((*sessions* (make-hash-table :test 'equal)))
+    ;; Create a Lack app with a simple message handler
+    (let* ((handler-called nil)
+           (test-handler (lambda (body)
+                           (setf handler-called body)
+                           "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}"))
+           (app (acl2-mcp-bridge::make-session-lack-app nil test-handler)))
+      ;; Simulate an initialize request (POST with initialize method)
+      (let* ((body-string "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}")
+             (body-bytes (babel:string-to-octets body-string :encoding :utf-8))
+             (body-stream (flex:make-in-memory-input-stream body-bytes))
+             (env (list :request-method :post
+                        :content-length (length body-bytes)
+                        :raw-body body-stream
+                        :headers (make-hash-table :test 'equal))))
+        ;; Call the app - this should NOT crash
+        (let ((response (funcall app env)))
+          ;; Should return a valid Lack response (list of status, headers, body)
+          (is (listp response))
+          (is (= 200 (first response)))
+          ;; Should have set mcp-session-id header for init request
+          (is (getf (second response) :mcp-session-id))
+          ;; Handler should have been called
+          (is (string= body-string handler-called)))))))

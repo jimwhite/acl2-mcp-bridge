@@ -61,75 +61,77 @@ Each unique session ID gets its own isolated CL evaluation context."))
 
 (defun make-session-lack-app (transport message-handler)
   "Create a Lack app that handles MCP sessions per spec."
+  (declare (ignore transport))
   (lambda (env)
-    (let* ((request-method (getf env :request-method))
-           (content-length (getf env :content-length))
-           (body-stream (getf env :raw-body))
-           (session-id (get-session-id-from-headers env)))
-      
-      ;; Handle DELETE = session termination
-      (when (eq request-method :delete)
-        (if session-id
-            (progn
-              (destroy-session session-id)
-              (return-from make-session-lack-app
-                '(200 (:content-type "application/json") ("{}"))))
-            (return-from make-session-lack-app
-              '(400 (:content-type "application/json") 
-                ("{\"error\":\"Missing MCP-Session-Id\"}")))))
-      
-      ;; For POST, read body and process
-      (when (eq request-method :post)
-        (let* ((body-bytes (when (and body-stream content-length)
-                            (let ((buf (make-array content-length 
-                                                   :element-type '(unsigned-byte 8))))
-                              (read-sequence buf body-stream)
-                              buf)))
-               (body-string (when body-bytes
-                             (babel:octets-to-string body-bytes :encoding :utf-8)))
-               (is-init (and body-string (is-initialize-request-p body-string)))
-               ;; For initialize: generate new session ID
-               ;; Otherwise: use provided session ID or reject
-               (effective-session-id 
-                 (cond
-                   (is-init (generate-session-id))
-                   (session-id session-id)
-                   (t nil))))
-          
-          ;; Reject non-init requests without session ID
-          (when (and (not is-init) (not effective-session-id))
-            (return-from make-session-lack-app
-              '(400 (:content-type "application/json")
-                ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Missing MCP-Session-Id header\"}}"))))
-          
-          ;; Check if session exists (for non-init requests)
-          (when (and (not is-init) 
-                     (not (get-session effective-session-id)))
-            (return-from make-session-lack-app
-              '(404 (:content-type "application/json")
-                ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Session not found\"}}"))))
-          
-          ;; Process request with session binding
-          (let* ((*current-session* (get-or-create-session effective-session-id))
-                 (response (funcall message-handler body-string))
-                 (response-headers 
-                   (if is-init
-                       ;; Include session ID in init response
-                       (list :content-type "application/json"
-                             :mcp-session-id effective-session-id)
-                       (list :content-type "application/json"))))
-            (return-from make-session-lack-app
-              (list 200 response-headers (list response))))))
-      
-      ;; GET for SSE stream (not yet implemented)
-      (when (eq request-method :get)
-        (return-from make-session-lack-app
-          '(405 (:content-type "application/json")
-            ("{\"error\":\"SSE not implemented\"}"))))
-      
-      ;; Unknown method
-      '(405 (:content-type "application/json")
-        ("{\"error\":\"Method not allowed\"}")))))
+    (block lack-app
+      (let* ((request-method (getf env :request-method))
+             (content-length (getf env :content-length))
+             (body-stream (getf env :raw-body))
+             (session-id (get-session-id-from-headers env)))
+        
+        ;; Handle DELETE = session termination
+        (when (eq request-method :delete)
+          (if session-id
+              (progn
+                (destroy-session session-id)
+                (return-from lack-app
+                  '(200 (:content-type "application/json") ("{}"))))
+              (return-from lack-app
+                '(400 (:content-type "application/json") 
+                  ("{\"error\":\"Missing MCP-Session-Id\"}")))))
+        
+        ;; For POST, read body and process
+        (when (eq request-method :post)
+          (let* ((body-bytes (when (and body-stream content-length)
+                              (let ((buf (make-array content-length 
+                                                     :element-type '(unsigned-byte 8))))
+                                (read-sequence buf body-stream)
+                                buf)))
+                 (body-string (when body-bytes
+                               (babel:octets-to-string body-bytes :encoding :utf-8)))
+                 (is-init (and body-string (is-initialize-request-p body-string)))
+                 ;; For initialize: generate new session ID
+                 ;; Otherwise: use provided session ID or reject
+                 (effective-session-id 
+                   (cond
+                     (is-init (generate-session-id))
+                     (session-id session-id)
+                     (t nil))))
+            
+            ;; Reject non-init requests without session ID
+            (when (and (not is-init) (not effective-session-id))
+              (return-from lack-app
+                '(400 (:content-type "application/json")
+                  ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Missing MCP-Session-Id header\"}}"))))
+            
+            ;; Check if session exists (for non-init requests)
+            (when (and (not is-init) 
+                       (not (get-session effective-session-id)))
+              (return-from lack-app
+                '(404 (:content-type "application/json")
+                  ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Session not found\"}}"))))
+            
+            ;; Process request with session binding
+            (let* ((*current-session* (get-or-create-session effective-session-id))
+                   (response (funcall message-handler body-string))
+                   (response-headers 
+                     (if is-init
+                         ;; Include session ID in init response
+                         (list :content-type "application/json"
+                               :mcp-session-id effective-session-id)
+                         (list :content-type "application/json"))))
+              (return-from lack-app
+                (list 200 response-headers (list response))))))
+        
+        ;; GET for SSE stream (not yet implemented)
+        (when (eq request-method :get)
+          (return-from lack-app
+            '(405 (:content-type "application/json")
+              ("{\"error\":\"SSE not implemented\"}"))))
+        
+        ;; Unknown method
+        '(405 (:content-type "application/json")
+          ("{\"error\":\"Method not allowed\"}"))))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Override start-loop to use our session-aware app

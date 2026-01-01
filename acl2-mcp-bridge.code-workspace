@@ -6,30 +6,15 @@
 		{
 			"path": "../../home/acl2/books"
 		}
-	]
-	// , "settings": {
-	// 	"mcp": {
-	// 		"servers": {
-	// 			"acl2-mcp-bridge": {
-	// 				"type": "http",
-	// 				"command": "sbcl",
-	// 				"args": [
-	// 					"--noinform",
-	// 					"--disable-debugger",
-	// 					"--non-interactive",
-	// 					"--eval",
-	// 					"(ql:quickload :acl2-mcp-bridge)",
-	// 					"--eval",
-	// 					"(progn (acl2-mcp-bridge:start-server :protocol :mcp :transport :http :host \"0.0.0.0\" :port 8085) (loop (sleep 1)))"
-	// 				],
-	// 				"env": {
-	// 					"ASDF_SOURCE_REGISTRY": "(:source-registry (:tree \"/workspaces/acl2-mcp-bridge/\") :inherit-configuration)",
-	// 					"CL_SOURCE_REGISTRY": "/workspaces/acl2-mcp-bridge//:"
-	// 				},
-	// 				"url": "http://127.0.0.1:8085/mcp"
-	// 			}
-	// 		},
-	// 		"inputs": []
-	// 	}
-	// }
+	],
+	"settings": {
+		"mcp": {
+			"servers": {
+				"acl2-mcp-bridge": {
+					"type": "http",
+					"url": "http://127.0.0.1:8085/mcp"
+				}
+			}
+		}
+	}
 }
