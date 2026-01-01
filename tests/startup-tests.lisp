@@ -125,15 +125,82 @@
         (is (member "list_sessions" exposed :test #'string=))
         (is (member "eval_cl" exposed :test #'string=))))))
 
-(test eval-cl-jsonrpc-roundtrip
-  ;; Simulate the HTTP handler path: build a JSON-RPC server, expose methods, and dispatch eval_cl.
-  (let* ((apis (list acl2-api cl-api bridge-api))
-         (rpc-server (jsonrpc:make-server)))
-    (dolist (api apis)
-      (maphash (lambda (name method-info)
-                 (jsonrpc:expose rpc-server name (openrpc-server/method:method-thunk method-info)))
-               (openrpc-server:api-methods api)))
-    (let* ((payload "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eval_cl\",\"params\":{\"code\":\"'(1 2 3 4)\"}}")
-           (response (40ants-mcp/server/definition:handle-message rpc-server payload)))
-      (is (stringp response))
-      (is (search "1 2 3 4" response)))))
+(test eval-cl-http-roundtrip
+  ;; Full HTTP roundtrip using a subprocess to host the MCP server so we can start/stop cleanly.
+  (let* ((project-root (namestring (asdf:system-source-directory :acl2-mcp-bridge)))
+         (port (+ 20000 (random 10000)))
+         (payload "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eval_cl\",\"params\":{\"code\":\"'(1 2 3 4)\"}}")
+         (req (format nil "POST /mcp HTTP/1.1~c~chost: 127.0.0.1~c~ccontent-type: application/json~c~ccontent-length: ~d~c~c~%~a"
+                      #\Return #\Linefeed #\Return #\Linefeed #\Return #\Linefeed (length payload) #\Return #\Linefeed payload))
+         (body ""))
+    (uiop:with-temporary-file (:pathname script :type "lisp")
+      ;; Emit a small script that starts the MCP server and prints READY when listening.
+      (with-open-file (out script :direction :output :if-exists :supersede)
+        (let ((forms (list
+                      '(require 'asdf)
+                      `(asdf:initialize-source-registry '(:source-registry (:tree ,project-root) :inherit-configuration))
+                            '(let* ((home (user-homedir-pathname))
+                              (ql-setup (when home (merge-pathnames "quicklisp/setup.lisp" home))))
+                         (when (and ql-setup (probe-file ql-setup)) (load ql-setup)))
+                            '(asdf:load-system :acl2-mcp-bridge)
+                      `(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port ,port)
+                      '(format t "READY~%")
+                      '(finish-output)
+                      '(loop (sleep 1)))))
+          (dolist (form forms)
+            (print form out))))
+      (let* ((proc (uiop:launch-program
+                    (list "sbcl" "--noinform" "--disable-debugger" "--script" (namestring script))
+                      :output :stream :error-output :stream)))
+        (unwind-protect
+             (progn
+               ;; Wait until the HTTP listener accepts connections or time out.
+               (loop repeat 50
+                      thereis (progn
+                               (unless (uiop:process-alive-p proc)
+                                    (uiop:wait-process proc)
+                                    (error "MCP server process exited early. stdout: ~A stderr: ~A"
+                                            (if (uiop:process-info-output proc) (uiop:slurp-stream-string (uiop:process-info-output proc)) "")
+                                            (if (uiop:process-info-error-output proc) (uiop:slurp-stream-string (uiop:process-info-error-output proc)) "")))
+                               (handler-case
+                                   (progn
+                                     (usocket:with-client-socket (sock stream "127.0.0.1" port
+                                                                      :element-type 'character
+                                                                      :timeout 0.2)
+                                       (declare (ignore sock stream))
+                                       t)
+                                     ;; If we get here, connection succeeded; proceed.
+                                     t)
+                                 (usocket:connection-refused-error ()
+                                   (sleep 0.1)
+                                   nil)
+                                 (usocket:timeout-error ()
+                                   (sleep 0.1)
+                                   nil)))
+                      finally (error "MCP server did not start"))
+               ;; Issue the HTTP request with a connect timeout.
+               (handler-case
+                   (usocket:with-client-socket (sock stream "127.0.0.1" port
+                                                    :element-type 'character
+                                                    :timeout 5)
+                     (write-string req stream)
+                     (finish-output stream)
+                     ;; Read headers and capture Content-Length when present.
+                     (let ((content-length 0))
+                       (loop for line = (read-line stream nil nil)
+                             while (and line (not (string= line ""))) do
+                               (when (alexandria:starts-with-subseq "Content-Length:" line :test #'char-equal)
+                                 (setf content-length
+                                       (parse-integer (string-trim '(#\Space #\Tab)
+                                                                   (subseq line 15))))))
+                       (setf body (with-output-to-string (s)
+                                    (dotimes (_ content-length)
+                                      (let ((ch (read-char stream nil nil)))
+                                        (when ch (write-char ch s)))))))
+                 (usocket:connection-refused-error ()
+                   (error "HTTP transport refused connection"))))
+              (ignore-errors (uiop:terminate-process proc :abort t))
+              (uiop:wait-process proc)))
+    (is (stringp body))
+    ;; Should not be a parse error, should contain the list
+    (is (search "1 2 3 4" body))))))
