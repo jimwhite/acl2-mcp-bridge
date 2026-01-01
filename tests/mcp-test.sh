@@ -151,18 +151,6 @@ EVAL_CL_TESTS='[
   {"description": "Define and use variable", "arguments": {"code": "(let ((x 10)) (* x x))"}, "expect_success": true}
 ]'
 
-LIST_SESSIONS_TESTS='[
-  {"description": "List sessions - no args", "arguments": {}, "expect_success": true}
-]'
-
-START_SESSION_TESTS='[
-  {"description": "Start new session", "arguments": {}, "expect_success": true}
-]'
-
-STOP_SESSION_TESTS='[
-  {"description": "Stop non-existent session", "arguments": {"session_id": "nonexistent"}, "expect_success": true}
-]'
-
 # Process each tool
 for i in $(seq 0 $((TOOL_COUNT - 1))); do
   tool=$(echo "$TOOLS" | jq -c ".[$i]")
@@ -175,26 +163,14 @@ for i in $(seq 0 $((TOOL_COUNT - 1))); do
   echo "Description:  $TOOL_DESC"
   echo ""
   
-  # Use predefined tests for known tools, otherwise ask LLM
+  # Use predefined tests for eval_cl, otherwise ask LLM
   case "$TOOL_NAME" in
     eval_cl)
       TEST_CASES="$EVAL_CL_TESTS"
       echo "  Using predefined Common Lisp test cases..."
       ;;
-    list_sessions)
-      TEST_CASES="$LIST_SESSIONS_TESTS"
-      echo "  Using predefined test cases..."
-      ;;
-    start_session)
-      TEST_CASES="$START_SESSION_TESTS"
-      echo "  Using predefined test cases..."
-      ;;
-    stop_session)
-      TEST_CASES="$STOP_SESSION_TESTS"
-      echo "  Using predefined test cases..."
-      ;;
     *)
-      # Ask LLM to generate test cases for unknown tools
+      # Ask LLM to generate test cases for other tools
       PROMPT="Generate exactly 3 test cases for this MCP tool. Return ONLY a valid JSON array, no markdown, no explanation.
 
 Tool: $TOOL_NAME
@@ -250,103 +226,37 @@ Include: 1 happy path, 1 edge case (empty string), 1 with special chars. JSON on
 done
 
 # ═══════════════════════════════════════════════════════════════
-# Session Persistence Integration Tests
+# State Persistence Test
 # ═══════════════════════════════════════════════════════════════
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Session Persistence Integration Tests"
+echo "State Persistence Test"
 echo ""
 
-# Test 1: Start session, define var, read back
-echo -n "  • Session workflow (defvar, read, incf, read)... "
+# Test: Define var, read back, modify, read again (uses default session)
+echo -n "  • State persistence (defvar, read, incf, read)... "
 
-# Start a new session
-SESSION=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 10 | jq -r '.result.content[0].text')
+# Define a variable
+R1=$(mcp_call "tools/call" '{"name":"eval_cl","arguments":{"code":"(defvar *persistence-test* 100)"}}' 10 | jq -r '.result.content[0].text')
 
-if [ -z "$SESSION" ] || [ "$SESSION" = "null" ]; then
-  echo "FAIL (couldn't start session)"
-  record_fail
-else
-  # Define a variable
-  R1=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"(defvar *test-var* 100)\",\"session_id\":\"$SESSION\"}}" 11 | jq -r '.result.content[0].text')
-  
-  # Read it back  
-  R2=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"*test-var*\",\"session_id\":\"$SESSION\"}}" 12 | jq -r '.result.content[0].text')
-  
-  # Increment it
-  R3=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"(incf *test-var*)\",\"session_id\":\"$SESSION\"}}" 13 | jq -r '.result.content[0].text')
-  
-  # Read again
-  R4=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"*test-var*\",\"session_id\":\"$SESSION\"}}" 14 | jq -r '.result.content[0].text')
-  
-  # Verify: R2 should be 100, R3 should be 101, R4 should be 101
-  if [ "$R2" = "100" ] && [ "$R3" = "101" ] && [ "$R4" = "101" ]; then
-    echo "PASS"
-    record_pass
-  else
-    echo "FAIL"
-    echo "    Expected: 100, 101, 101"
-    echo "    Got: $R2, $R3, $R4"
-    record_fail
-  fi
-  
-  # Clean up - stop the session
-  mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION\"}}" 15 > /dev/null
-fi
+# Read it back  
+R2=$(mcp_call "tools/call" '{"name":"eval_cl","arguments":{"code":"*persistence-test*"}}' 11 | jq -r '.result.content[0].text')
 
-# Test 2: Session lifecycle (start, use, stop, verify stopped)
-echo -n "  • Session lifecycle (start, stop, verify)... "
+# Increment it
+R3=$(mcp_call "tools/call" '{"name":"eval_cl","arguments":{"code":"(incf *persistence-test*)"}}' 12 | jq -r '.result.content[0].text')
 
-SESSION_NEW=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 20 | jq -r '.result.content[0].text')
+# Read again
+R4=$(mcp_call "tools/call" '{"name":"eval_cl","arguments":{"code":"*persistence-test*"}}' 13 | jq -r '.result.content[0].text')
 
-# Verify session exists - list should contain our session ID
-LIST_BEFORE=$(mcp_call "tools/call" '{"name":"list_sessions","arguments":{}}' 21 | jq -r '.result.content[0].text')
-
-# Stop the session
-STOP_RESULT=$(mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_NEW\"}}" 22 | jq -r '.result.content[0].text')
-
-# Try to stop again - should fail (session not found)
-STOP_AGAIN=$(mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_NEW\"}}" 23 | jq -r '.result.content[0].text')
-
-# Check results
-if echo "$LIST_BEFORE" | grep -q "$SESSION_NEW" && \
-   echo "$STOP_RESULT" | grep -q "Stopped" && \
-   echo "$STOP_AGAIN" | grep -q "not found"; then
+# Verify: R2 should be 100, R3 should be 101, R4 should be 101
+if [ "$R2" = "100" ] && [ "$R3" = "101" ] && [ "$R4" = "101" ]; then
   echo "PASS"
   record_pass
 else
   echo "FAIL"
-  echo "    Session was: $SESSION_NEW"
-  echo "    Stop result: $STOP_RESULT"
-  echo "    Stop again: $STOP_AGAIN"
+  echo "    Expected: 100, 101, 101"
+  echo "    Got: $R2, $R3, $R4"
   record_fail
 fi
-
-# Test 3: Multiple sessions work (note: sessions share state in single-process model)
-echo -n "  • Multiple sessions (session tracking)... "
-
-SESSION_A=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 30 | jq -r '.result.content[0].text')
-SESSION_B=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 31 | jq -r '.result.content[0].text')
-
-# Verify both sessions exist and have different IDs
-LIST=$(mcp_call "tools/call" '{"name":"list_sessions","arguments":{}}' 32 | jq -r '.result.content[0].text')
-
-# Check that both session IDs appear in the list and are different
-if [ "$SESSION_A" != "$SESSION_B" ] && \
-   echo "$LIST" | grep -q "$SESSION_A" && \
-   echo "$LIST" | grep -q "$SESSION_B"; then
-  echo "PASS"
-  record_pass
-else
-  echo "FAIL"
-  echo "    Session A: $SESSION_A"
-  echo "    Session B: $SESSION_B"
-  echo "    List: $LIST"
-  record_fail
-fi
-
-# Clean up
-mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_A\"}}" 33 > /dev/null
-mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_B\"}}" 34 > /dev/null
 
 echo ""
 

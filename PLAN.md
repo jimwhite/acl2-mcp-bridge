@@ -4,17 +4,21 @@
 Build a reliable ACL2 bridge server that supports the legacy Bridge protocol, Model Context Protocol (MCP) via 40ants-mcp, and a CL REPL, reusing proven ACL2 components (ACL2 Bridge, acl2-mcp, and ACL2 system books). Development must be TDD-first with no reliance on draft stubs.
 
 ## Current State (survey)
-- ACL2 integration remains stubbed: [acl2-interface.lisp](acl2-interface.lisp) defines session plumbing and UUID IDs but no real ACL2 I/O yet.
-- Bridge protocol server is present and framed correctly; message framing is now covered by tests (see [bridge-protocol.lisp](bridge-protocol.lisp) and [tests/message-format-tests.lisp](tests/message-format-tests.lisp)).
-- MCP tool registration lives in [tools-acl2.lisp](tools-acl2.lisp), [tools-cl.lisp](tools-cl.lisp), and [tools-bridge.lisp](tools-bridge.lisp); [mcp-tools.lisp](mcp-tools.lisp) is no longer loaded by the system.
-- Server startup is unified: [main.lisp](main.lisp) exports `start-server`, `start-both`, and `stop-server`, delegating to [mcp-server.lisp](mcp-server.lisp) for MCP startup. MCP stop is intentionally unsupported (no API in 40ants-mcp); tests assert the error behavior.
-- Threading helpers are still stubbed (see [threading-utils.lisp](threading-utils.lisp)); ACL2 main-thread serialization remains to be built.
-- FiveAM test system exists with two suites: startup dispatch/stop coverage and bridge message framing (see [tests/startup-tests.lisp](tests/startup-tests.lisp)).
-- Environment notes: requires Ultralisp for 40ants-mcp and a local clone of `cxxxr/jsonrpc` to provide `jsonrpc/transport/http` for MCP HTTP transport.
+- **CL tools working**: `eval_cl`, `load_file`, `define_function`, `list_sessions`, `start_session`, `stop_session` all functional with in-process evaluation.
+- **Session model**: Simple in-process sessions with package context tracking. Each session maintains its own current package. The MCP server itself provides the isolation boundary—clients needing separate environments should spawn multiple server instances.
+- **ACL2 integration** remains stubbed: [acl2-interface.lisp](acl2-interface.lisp) defines session plumbing and UUID IDs but no real ACL2 I/O yet.
+- **Bridge protocol** server is present and framed correctly; message framing is now covered by tests (see [bridge-protocol.lisp](bridge-protocol.lisp) and [tests/message-format-tests.lisp](tests/message-format-tests.lisp)).
+- **MCP tool registration** lives in [tools-acl2.lisp](tools-acl2.lisp), [tools-cl.lisp](tools-cl.lisp), and [tools-bridge.lisp](tools-bridge.lisp).
+- **Server startup** is unified: [main.lisp](main.lisp) exports `start-server`, `start-both`, and `stop-server`, delegating to [mcp-server.lisp](mcp-server.lisp) for MCP startup. MCP stop is intentionally unsupported (no API in 40ants-mcp).
+- **Test infrastructure**: FiveAM unit tests plus automated MCP integration tests via [tests/mcp-test.sh](tests/mcp-test.sh) that use LLM-powered test case generation and validation.
+- **Environment notes**: requires Ultralisp for 40ants-mcp and a local clone of `cxxxr/jsonrpc` to provide `jsonrpc/transport/http` for MCP HTTP transport.
 
 ## Recent Work / Learnings
+- **Simplified session model**: Dropped multi-session subprocess isolation in favor of simple in-process evaluation. The MCP server process itself is the isolation boundary—clients spin up multiple servers if they need separate environments (like ACL2 Bridge model).
+- **CL tools fully functional**: `eval_cl` handles multiple values correctly, sessions track package context, all session lifecycle tools working.
+- **Automated MCP integration tests**: [tests/mcp-test.sh](tests/mcp-test.sh) provides comprehensive automated testing using LLM-powered test generation and validation (14 tests passing).
 - Added FiveAM test system wired via ASDF; tests mock server entry points with a local `with-redefs` helper to avoid opening sockets.
-- Reordered [acl2-mcp-bridge.asd](acl2-mcp-bridge.asd) so API tool definitions load before the MCP server; removed `mcp-tools` from the system to avoid duplicate registrations.
+- Reordered [acl2-mcp-bridge.asd](acl2-mcp-bridge.asd) so API tool definitions load before the MCP server.
 - Fixed Bridge message framing to preserve newline expectations and validated with round-trip tests.
 - Clarified shutdown semantics: Bridge stop closes the listener; MCP stop is unsupported and should be handled by process restart.
 - Session IDs use stringified UUIDs for both ACL2 and CL registries.
@@ -52,8 +56,8 @@ Build a reliable ACL2 bridge server that supports the legacy Bridge protocol, Mo
   - Integration: bridge protocol over loopback with a stub ACL2 backend.
 
 ## Immediate Next Steps
-1. Implement ACL2 adapter backed by the Bridge book or a managed ACL2 process; surface real outputs/errors in tool responses.
-2. Add session-registry and ACL2/CL adapter tests (including locking semantics and main-thread serialization once implemented).
-3. Add MCP tool contract tests (OpenRPC shapes) with a fake ACL2 backend to pin request/response formats.
-4. Introduce integration tests for Bridge and MCP over loopback once real ACL2 plumbing lands; keep a skip/marker for environments lacking ACL2.
-5. Decide whether `mcp-tools.lisp` should be deleted or merged into the active tool definitions to avoid drift.
+1. **ACL2 integration**: Implement ACL2 adapter backed by the Bridge book or a managed ACL2 process; surface real outputs/errors in tool responses.
+2. **ACL2 session lifecycle**: Wire up `start_session`, `stop_session` for ACL2 sessions with actual ACL2 subprocess management.
+3. **Bridge protocol integration tests**: Add integration tests for Bridge protocol over loopback with stub ACL2 backend.
+4. **Threading**: Implement `run-in-main-thread` if ACL2 requires main-thread serialization.
+5. **Cleanup**: Review and potentially remove `mcp-tools.lisp` if no longer needed.

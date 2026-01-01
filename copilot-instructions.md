@@ -1,8 +1,11 @@
 # Copilot Instructions
 
 ## Context
-- Project: ACL2 MCP Bridge server combining legacy ACL2 Bridge, 40ants-mcp, and Common Lisp REPL. Existing code is draft-quality; treat all implementations as potentially wrong.
-- Reuse: Prefer proven ACL2 sources (ACL2 Bridge book, acl2-mcp, ACL2 system books at /home/acl2/books) over reinventing logic. Avoid diverging semantics from ACL2 where possible.
+- Project: ACL2 MCP Bridge server combining legacy ACL2 Bridge, 40ants-mcp, and Common Lisp REPL.
+- **CL tools working**: `eval_cl`, `load_file`, `define_function`, `list_sessions`, `start_session`, `stop_session` are fully functional with in-process evaluation.
+- **Session model**: Simple in-process sessions. The MCP server itself provides isolation—clients spawn multiple servers if they need separate environments.
+- **ACL2 integration**: Still stubbed; next major work item.
+- Reuse: Prefer proven ACL2 sources (ACL2 Bridge book, acl2-mcp, ACL2 system books at /home/acl2/books) over reinventing logic.
 
 ## Expectations
 - Work in TDD style: add failing tests before fixes/features. Do not delete or disable tests; surface blockers instead of bypassing them.
@@ -20,7 +23,8 @@
 - Ensure data translation between ACL2 and CL is faithful (avoid read/print ambiguity, handle packages carefully).
 
 ## Testing
-- Add automated tests for session management, ACL2 interactions (with suitable fakes/mocks), and protocol framing. Prefer fast, deterministic tests.
+- **Unit tests**: FiveAM tests in [tests/](tests/) for session management, protocol framing. Run via `(asdf:test-system :acl2-mcp-bridge)`.
+- **Integration tests**: [tests/mcp-test.sh](tests/mcp-test.sh) provides automated MCP tool testing with LLM-powered test generation. Run with `SERVER_TYPE=bridge ./tests/mcp-test.sh`.
 - When adding features, include regression tests that capture expected ACL2/Bridge/MCP behaviors.
 
 ## Deliverables

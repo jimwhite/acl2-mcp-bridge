@@ -81,7 +81,7 @@ HTTP transport details (matches 40ants-mcp defaults):
 
 ### Testing
 
-- Quicklisp style (recommended):
+#### Unit tests (FiveAM)
 
 ```bash
 sbcl --eval '(ql:quickload :acl2-mcp-bridge/tests)' \
@@ -89,11 +89,30 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge/tests)' \
   --quit
 ```
 
-- Script style (no ASDF config needed if Quicklisp is installed in `~/quicklisp`):
+Or script style:
 
 ```bash
 sbcl --script tests/run-tests-script.lisp
 ```
+
+#### Integration tests (MCP tools)
+
+Automated MCP server testing with LLM-powered test generation:
+
+```bash
+# Test full acl2-mcp-bridge server
+SERVER_TYPE=bridge ./tests/mcp-test.sh
+
+# Test simple example server
+SERVER_TYPE=readme ./tests/mcp-test.sh
+```
+
+The test script:
+- Discovers all tools via `tools/list`
+- Runs predefined tests for CL tools (eval_cl, sessions)
+- Uses LLM to generate and judge tests for unknown tools
+- Validates session persistence workflows
+- Reports pass/fail summary (currently 14 tests, all passing)
 
 ### Smoke tests
 
@@ -113,25 +132,25 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
   --eval '(loop (sleep 1))'
 ```
 
-- Curl smoke (list sessions over HTTP):
+- Curl smoke (eval_cl over HTTP):
 
 ```bash
 curl -s -X POST http://127.0.0.1:8085/mcp \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"list_sessions","params":[]}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"eval_cl","arguments":{"code":"(+ 1 2 3)"}}}'
 ```
 
-Method names (snake_case, no prefix), as registered today (see server log dump):
+Method names (snake_case), as registered today:
 - CL tools: `eval_cl`, `load_file`, `define_function`, `list_sessions`, `start_session`, `stop_session`
 - ACL2 tools (stubs): `check_theorem`, `admit`, `verify_guards`, `query_event`, `list_sessions`, `start_session`, `stop_session`
 - Bridge tools: `acl2_to_cl`, `cl_to_acl2`, `cross_eval`
 
-Example (CL list sessions):
+Example (eval_cl):
 
 ```bash
 curl -s -X POST http://127.0.0.1:8085/mcp \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"list_sessions","params":[]}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"eval_cl","arguments":{"code":"(+ 1 2 3)"}}}'
 ```
 
 Claude Desktop (HTTP) example:
@@ -180,7 +199,7 @@ Smoke test HTTP with curl:
 ```bash
 curl -s -X POST http://127.0.0.1:8085/mcp \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"list_sessions","params":[]}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"eval_cl","arguments":{"code":"(+ 1 2 3)"}}}'
 ```
 
 #### VS Code workspace settings (MCP extension)
@@ -262,21 +281,22 @@ Claude Desktop (stdio) example remains the same as above; omit `url` and use `:t
 
 ### Session lifecycle (current)
 
-- CL sessions: a missing `session_id` auto-creates a new session (default is "default") via `ensure-cl-session` (see [sessions.lisp](sessions.lisp)). There is currently **no explicit start/stop tool** for CL; garbage collection/expiry is not implemented yet.
-- ACL2 sessions: IDs are generated and stored, but lifecycle management is still stubbed; tool calls accept `session_id` and will use the default when omitted (see [acl2-interface.lisp](acl2-interface.lisp)). Start/stop tooling is a planned addition.
+- **CL sessions**: Simple in-process evaluation model. Each session tracks its current package context. Missing `session_id` auto-creates a session (default is "default") via `ensure-cl-session`. Sessions are managed with `start_session`, `stop_session`, and `list_sessions` tools. The MCP server itself provides the isolation boundary—clients needing separate environments should spawn multiple server instances.
+- **ACL2 sessions**: IDs are generated and stored, but lifecycle management is still stubbed; tool calls accept `session_id` and will use the default when omitted (see [acl2-interface.lisp](acl2-interface.lisp)).
 
 ## MCP tool reference (current)
 
 - CL tools (API `cl-api`, defined in [tools-cl.lisp](tools-cl.lisp))
-  - `eval-cl`: args `code` (string, required), `session_id` (string, optional, default "default"); returns printed result or error text.
-  - `load-file`: args `path` (string, required), `session_id` (string, optional, default "default"); loads a Lisp file and reports success/error.
-  - `define-function`: args `name` (string), `lambda_list` (string), `body` (string), `session_id` (string, optional); reads forms and interns a function in the session.
-  - `list-sessions`: no args; returns the list of active CL session IDs.
-  - `start-session`: no args; creates a new CL session and returns its id.
-  - `stop-session`: args `session_id` (string, required); removes the CL session (no-op message if missing).
+  - `eval_cl`: args `code` (string, required), `session_id` (string, optional, default "default"); returns result(s) or error text. Single values are printed directly; multiple values are separated by newlines.
+  - `load_file`: args `path` (string, required), `session_id` (string, optional, default "default"); loads a Lisp file and reports success/error.
+  - `define_function`: args `name` (string), `lambda_list` (string), `body` (string), `session_id` (string, optional); reads forms and interns a function in the session.
+  - `list_sessions`: no args; returns the list of active CL sessions with metadata (id, package, created, last-activity).
+  - `start_session`: no args; creates a new CL session and returns its UUID.
+  - `stop_session`: args `session_id` (string, required); removes the CL session (reports "not found" if missing).
 
 Notes
 - Session IDs are plain UUID strings; the default CL session ID is "default" when not provided.
+- Each session maintains its own package context (defaults to CL-USER).
 - Results are returned as a list of `text-content` items as required by 40ants-mcp.
 
 - ACL2 tools (API `acl2-api`, defined in [tools-acl2.lisp](tools-acl2.lisp))

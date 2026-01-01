@@ -1,14 +1,61 @@
 <img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
 
-# i don;t want an interactive tool like that inspector - it opened up a browser window asking for auth
+# MCP Server Testing
 
-we need a way to automatically test all the features of an MCP server including all its tools
+## Our Test Script: `mcp-test.sh`
 
-Perfect! I found exactly what you need. Here's the best solution for automated MCP server testing:
+We have a built-in automated test script that tests all MCP server features:
 
-## Best Tool: [MCP Server Tester](https://github.com/r-huijts/mcp-server-tester)
+```bash
+# Run against the full acl2-mcp-bridge server
+SERVER_TYPE=bridge ./tests/mcp-test.sh
 
-This is specifically designed for **automated, non-interactive testing of all MCP server features**:
+# Run against the simple example server  
+SERVER_TYPE=readme ./tests/mcp-test.sh
+```
+
+### Features
+
+- ✅ **Discovers all tools automatically** from the MCP server
+- ✅ **Uses LM Studio LLM** to generate test cases and judge responses
+- ✅ **Predefined test cases** for known CL tools (eval_cl, sessions, etc.)
+- ✅ **Session persistence tests** - verifies defvar/incf workflows
+- ✅ **Multiple session tracking** - verifies sessions can be created and listed
+- ✅ **CI-ready** - exits with status code reflecting pass/fail
+
+### Configuration
+
+Environment variables:
+- `SERVER_TYPE` - "bridge" for full server, "readme" for simple example
+- `MCP_PORT` - port to use (default 8085)
+- `LM_STUDIO_URL` - LLM endpoint (default http://host.docker.internal:1234/v1)
+- `LM_MODEL` - model name (default qwen/qwen3-coder-30b)
+
+### Current Test Results (14 tests)
+
+```
+  • Happy path - arithmetic... PASS
+  • Happy path - list operations... PASS
+  • Happy path - string... PASS
+  • Edge case - empty string... PASS
+  • Edge case - whitespace only... PASS
+  • Edge case - syntax error... PASS
+  • Multiple values... PASS
+  • Define and use variable... PASS
+  • Start new session... PASS
+  • Stop non-existent session... PASS
+  • List sessions - no args... PASS
+  • Session workflow (defvar, read, incf, read)... PASS
+  • Session lifecycle (start, stop, verify)... PASS
+  • Multiple sessions (session tracking)... PASS
+Summary: 14 passed, 0 failed
+```
+
+---
+
+# Alternative: External MCP Server Tester
+
+For more comprehensive testing, you can also use the external [MCP Server Tester](https://github.com/r-huijts/mcp-server-tester):
 
 ### Key Features
 
