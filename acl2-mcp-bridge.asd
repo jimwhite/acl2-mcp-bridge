@@ -20,11 +20,10 @@
                (:file "threading-utils")
                (:file "bridge-protocol")
                (:file "message-format")
-               (:file "mcp-tools")
-               (:file "mcp-server")
                (:file "tools-acl2")
                (:file "tools-cl")
                (:file "tools-bridge")
+               (:file "mcp-server")
                (:file "main")))
 
 (asdf:defsystem "acl2-mcp-bridge/tests"

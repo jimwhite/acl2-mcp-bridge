@@ -4,14 +4,30 @@
   (def-suite startup-suite))
 (in-suite startup-suite)
 
+(defmacro with-redefs (bindings &body body)
+  "Temporarily override function definitions for testing."
+  (let ((old-fns (gensym "OLD-FNS")))
+    `(let ((,old-fns (list ,@(mapcar (lambda (binding)
+                                       `(list ',(car binding)
+                                              (symbol-function ',(car binding))))
+                                     bindings))))
+       (unwind-protect
+            (progn
+              ,@(mapcar (lambda (binding)
+                          `(setf (symbol-function ',(car binding)) ,(cadr binding)))
+                        bindings)
+              ,@body)
+         (dolist (entry ,old-fns)
+           (setf (symbol-function (first entry)) (second entry)))))))
+
 (test start-server-bridge-dispatch
   (let ((*bridge-server* nil)
         (*mcp-server* nil)
         (bridge-port nil))
-    (letf (((symbol-function 'acl2-mcp-bridge::start-bridge-server)
-            (lambda (&key port) (setf bridge-port port) (list :bridge port)))
-           ((symbol-function 'initialize-acl2-interface)
-            (lambda (&optional _) (error "ACL2 init should not run for bridge"))))
+    (with-redefs ((acl2-mcp-bridge::start-bridge-server
+                   (lambda (&key port) (setf bridge-port port) (list :bridge port)))
+                  (initialize-acl2-interface
+                   (lambda (&optional _) (error "ACL2 init should not run for bridge"))))
       (let ((server (start-server :protocol :bridge :port 1234)))
         (is (equal 1234 bridge-port))
         (is (equal '(:bridge 1234) server))
@@ -22,12 +38,12 @@
         (*mcp-server* nil)
         (init-path nil)
         (args nil))
-        (letf (((symbol-function 'initialize-acl2-interface)
-            (lambda (&optional path) (setf init-path path) path))
-          ((symbol-function 'acl2-mcp-bridge::start-mcp-server)
-            (lambda (&key transport host port)
-              (setf args (list :transport transport :host host :port port))
-              (list :mcp transport host port))))
+        (with-redefs ((initialize-acl2-interface
+                       (lambda (&optional path) (setf init-path path) path))
+                      (acl2-mcp-bridge::start-mcp-server
+                       (lambda (&key transport host port)
+                         (setf args (list :transport transport :host host :port port))
+                         (list :mcp transport host port))))
       (let ((server (start-server :protocol :mcp
                                   :transport :http
                                   :host "0.0.0.0"
@@ -43,17 +59,17 @@
         (*mcp-server* nil)
         (bridge-calls 0)
         (mcp-calls 0))
-    (letf (((symbol-function 'acl2-mcp-bridge::start-bridge-server)
-            (lambda (&key port)
-              (incf bridge-calls)
-              (list :bridge port)))
-           ((symbol-function 'initialize-acl2-interface)
-            (lambda (&optional path) (declare (ignore path)) nil))
-           ((symbol-function 'acl2-mcp-bridge::start-mcp-server)
-            (lambda (&key transport host port)
-              (declare (ignore host port))
-              (incf mcp-calls)
-              (list :mcp transport))))
+    (with-redefs ((acl2-mcp-bridge::start-bridge-server
+                   (lambda (&key port)
+                     (incf bridge-calls)
+                     (list :bridge port)))
+                  (initialize-acl2-interface
+                   (lambda (&optional path) (declare (ignore path)) nil))
+                  (acl2-mcp-bridge::start-mcp-server
+                   (lambda (&key transport host port)
+                     (declare (ignore host port))
+                     (incf mcp-calls)
+                     (list :mcp transport))))
       (multiple-value-bind (bridge mcp)
           (start-both :bridge-port 1111 :mcp-transport :stdio :acl2-path "acl2-bin")
         (is (= 1 bridge-calls))
@@ -66,8 +82,8 @@
 (test stop-server-bridge-only
   (let ((*bridge-server* :bridge)
     (bridge-closed nil))
-    (letf (((symbol-function 'usocket:socket-close)
-    (lambda (socket) (setf bridge-closed socket))))
+    (with-redefs ((usocket:socket-close
+                   (lambda (socket) (setf bridge-closed socket))))
   (stop-server :protocol :bridge)
   (is (equal :bridge bridge-closed))
   (is (null *bridge-server*)))))
