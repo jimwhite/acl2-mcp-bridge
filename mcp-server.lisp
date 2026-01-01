@@ -108,11 +108,15 @@ introspects the current session package. Useful for exploring available definiti
 ;; See: https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#session-management
 
 
-(defun start-mcp-server (&key (transport :stdio) host port)
+(defun start-mcp-server (&key (transport :stdio) host port socket-path)
   "Start the MCP server with per-client session support.
 
 Uses session-http-transport for HTTP to provide isolated sessions per client.
-Each client (identified by MCP session ID) gets its own CL evaluation context."
+Each client (identified by MCP session ID) gets its own CL evaluation context.
+
+:transport :http     - HTTP transport
+:port                - TCP port (for HTTP over TCP)
+:socket-path         - Unix socket path (for HTTP over Unix socket)"
   (declare (ignore host))
   (log:info "Starting MCP server with transport ~A" transport)
   
@@ -127,12 +131,16 @@ Each client (identified by MCP session ID) gets its own CL evaluation context."
                         (find-symbol "HANDLE-MESSAGE" 
                                      (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
             (rpc-server (funcall init-fn acl2-mcp-tools))
-            (transport-obj (make-instance 'session-http-transport :port port)))
+            (transport-obj (if socket-path
+                               (make-instance 'unix-socket-http-transport 
+                                              :socket-path socket-path
+                                              :port (or port 0))
+                               (make-instance 'session-http-transport :port port))))
        (start-loop transport-obj
                    (lambda (message)
                      (funcall handle-fn rpc-server message)))))
     (:stdio
-     ;; Use standard 40ants-mcp for stdio
+     ;; Use standard 40ants-mcp for stdio (not recommended for ACL2)
      (40ants-mcp/server/definition:start-server 
       acl2-mcp-tools
       :transport :stdio))

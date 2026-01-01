@@ -5,18 +5,20 @@
 (defparameter *bridge-server* nil)
 (defparameter *mcp-server* nil)
 
-(defun start-server (&key (protocol :bridge) (transport :http) port host acl2-path)
+(defun start-server (&key (protocol :bridge) (transport :http) port host socket-path acl2-path)
   "Start the server with specified protocol.
 
    :protocol :bridge   - ACL2 Bridge protocol (TCP, default port 55433)
    :protocol :mcp      - Model Context Protocol
 
-   :transport :http    - HTTP server (for MCP, requires :port)
+   :transport :http    - HTTP server (for MCP)
    
    Note: stdio transport is NOT supported because ACL2's startup banners
-   and prompts would corrupt the JSON-RPC stream.
+   and prompts would corrupt the JSON-RPC stream. Use the Python stdio
+   wrapper (acl2-mcp-stdio.py) instead.
 
-   :port               - Port number (for Bridge or MCP HTTP)
+   :port               - Port number (for Bridge or MCP HTTP over TCP)
+   :socket-path        - Unix socket path (for MCP HTTP over Unix socket)
    :host               - Host binding (HTTP transport only)
    :acl2-path          - Ignored (we run inside ACL2)"
   (declare (ignore acl2-path))
@@ -28,11 +30,11 @@
      *bridge-server*)
     (:mcp
      (when (eq transport :stdio)
-       (error "stdio transport not supported - ACL2 output noise corrupts JSON-RPC. Use :http"))
+       (error "stdio transport not supported - use acl2-mcp-stdio.py wrapper instead"))
      (initialize-acl2-interface)
      (log:info "MCP server starting via 40ants-mcp (~A transport)" transport)
      (setf *mcp-server*
-       (start-mcp-server :transport transport :host host :port port))
+       (start-mcp-server :transport transport :host host :port port :socket-path socket-path))
      *mcp-server*)
     (otherwise
      (error "Unknown protocol: ~A" protocol))))

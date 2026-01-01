@@ -66,7 +66,30 @@ acl2
 (acl2-mcp-bridge:start-both :bridge-port 55433 :mcp-port 8085)
 ```
 
-**Note**: stdio transport is NOT supported because ACL2's startup banners and prompts would corrupt the JSON-RPC stream. Use HTTP transport instead.
+**Note**: stdio transport is NOT supported because ACL2's startup banners and prompts would corrupt the JSON-RPC stream. Use HTTP transport instead, or use the stdio wrapper below.
+
+### STDIO Mode (via Python Wrapper)
+
+For MCP clients that require stdio transport (like some CLI tools), use the Python wrapper:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "acl2-mcp-bridge": {
+        "type": "stdio",
+        "command": "python3",
+        "args": ["/path/to/acl2-mcp-bridge/acl2-mcp-stdio.py"]
+      }
+    }
+  }
+}
+```
+
+The wrapper:
+1. Launches ACL2 as a subprocess
+2. Starts the MCP server on a Unix socket
+3. Bridges stdio ↔ Unix socket HTTP
 
 ## MCP Session Management
 
@@ -204,6 +227,7 @@ Then start the server from ACL2:
 ```
 acl2-mcp-bridge/
 ├── acl2-mcp-bridge.asd     # ASDF system definition
+├── acl2-mcp-stdio.py       # stdio wrapper (launches ACL2, bridges stdio↔Unix socket)
 ├── package.lisp            # Package exports
 ├── config.lisp             # Configuration (*bridge-port*, etc.)
 ├── main.lisp               # Entry points (start-server, stop-server)
