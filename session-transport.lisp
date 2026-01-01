@@ -47,6 +47,14 @@ Each unique session ID gets its own isolated CL evaluation context."))
     (when headers
       (gethash "mcp-session-id" headers))))
 
+(defun get-connection-id (env)
+  "Get a unique connection identifier from remote addr:port.
+For Streamable HTTP, each connection maintains its own session."
+  (let ((addr (getf env :remote-addr))
+        (port (getf env :remote-port)))
+    (when (and addr port)
+      (format nil "conn-~A:~A" addr port))))
+
 (defun is-initialize-request-p (body-string)
   "Check if BODY-STRING is an MCP initialize request."
   (handler-case
@@ -67,18 +75,20 @@ Each unique session ID gets its own isolated CL evaluation context."))
       (let* ((request-method (getf env :request-method))
              (content-length (getf env :content-length))
              (body-stream (getf env :raw-body))
-             (session-id (get-session-id-from-headers env)))
+             (session-id (get-session-id-from-headers env))
+             (connection-id (get-connection-id env)))
         
         ;; Handle DELETE = session termination
         (when (eq request-method :delete)
-          (if session-id
-              (progn
-                (destroy-session session-id)
+          (let ((id-to-delete (or session-id connection-id)))
+            (if id-to-delete
+                (progn
+                  (destroy-session id-to-delete)
+                  (return-from lack-app
+                    '(200 (:content-type "application/json") ("{}"))))
                 (return-from lack-app
-                  '(200 (:content-type "application/json") ("{}"))))
-              (return-from lack-app
-                '(400 (:content-type "application/json") 
-                  ("{\"error\":\"Missing MCP-Session-Id\"}")))))
+                  '(400 (:content-type "application/json") 
+                    ("{\"error\":\"Cannot identify session\"}"))))))
         
         ;; For POST, read body and process
         (when (eq request-method :post)
@@ -90,23 +100,27 @@ Each unique session ID gets its own isolated CL evaluation context."))
                  (body-string (when body-bytes
                                (babel:octets-to-string body-bytes :encoding :utf-8)))
                  (is-init (and body-string (is-initialize-request-p body-string)))
-                 ;; For initialize: generate new session ID
-                 ;; Otherwise: use provided session ID or reject
+                 ;; Session ID priority:
+                 ;; 1. Explicit MCP-Session-Id header (spec-compliant clients)
+                 ;; 2. Connection-based ID (VS Code Streamable HTTP)
+                 ;; 3. Generate new ID for initialize requests
                  (effective-session-id 
                    (cond
-                     (is-init (generate-session-id))
-                     (session-id session-id)
+                     (session-id session-id)  ; Explicit header takes priority
+                     (connection-id connection-id)  ; Use connection for VS Code
+                     (is-init (generate-session-id))  ; New session on init
                      (t nil))))
             
-            ;; Reject non-init requests without session ID
-            (when (and (not is-init) (not effective-session-id))
+            ;; Only reject if we truly can't identify the session
+            (when (not effective-session-id)
               (return-from lack-app
                 '(400 (:content-type "application/json")
-                  ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Missing MCP-Session-Id header\"}}"))))
+                  ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Cannot identify session\"}}"))))
             
-            ;; Check if session exists (for non-init requests)
+            ;; Check if explicit session ID exists (for non-init requests with header)
             (when (and (not is-init) 
-                       (not (get-session effective-session-id)))
+                       session-id  ; Only check for explicit header sessions
+                       (not (get-session session-id)))
               (return-from lack-app
                 '(404 (:content-type "application/json")
                   ("{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32600,\"message\":\"Session not found\"}}"))))

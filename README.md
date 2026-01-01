@@ -31,9 +31,19 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
 
 The server implements MCP session management per the [Streamable HTTP spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#session-management):
 
-1. **Initialize**: Client sends `initialize` request → Server returns `MCP-Session-Id` header
-2. **Use**: Client includes `MCP-Session-Id` header on all subsequent requests
-3. **Terminate**: Client sends `HTTP DELETE` with `MCP-Session-Id` → Server destroys session
+### Session Identification
+
+Sessions are identified by (in priority order):
+1. **`MCP-Session-Id` header** (spec-compliant clients)
+2. **Connection ID** (`remote-addr:port`) for clients like VS Code that maintain persistent HTTP connections
+
+This means VS Code and similar clients work automatically without needing to send session headers - the server tracks sessions per HTTP connection.
+
+### Session Lifecycle
+
+1. **Initialize**: Client sends `initialize` request → Server creates session, returns `MCP-Session-Id` header
+2. **Use**: All requests from same connection use same session
+3. **Terminate**: Client sends `HTTP DELETE` → Server destroys session
 
 Each session gets:
 - **Private package**: `SESSION-<id>` package isolates all definitions
@@ -97,9 +107,9 @@ curl -X DELETE http://127.0.0.1:8085/mcp \
   -H 'MCP-Session-Id: <session-id>'
 ```
 
-## VS Code / Cursor Configuration
+## VS Code / GitHub Copilot Configuration
 
-Add to your workspace settings or `mcp.json`:
+VS Code's MCP implementation uses Streamable HTTP with persistent connections. Add to your `.code-workspace` file or VS Code settings:
 
 ```json
 {
@@ -107,18 +117,23 @@ Add to your workspace settings or `mcp.json`:
     "servers": {
       "acl2-mcp-bridge": {
         "type": "http",
-        "command": "sbcl",
-        "args": [
-          "--noinform", "--disable-debugger",
-          "--eval", "(ql:quickload :acl2-mcp-bridge)",
-          "--eval", "(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)",
-          "--eval", "(loop (sleep 1))"
-        ],
         "url": "http://127.0.0.1:8085/mcp"
       }
     }
   }
 }
+```
+
+Then start the server separately:
+
+```bash
+sbcl --noinform --disable-debugger \
+     --eval '(ql:quickload :acl2-mcp-bridge)' \
+     --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)' \
+     --eval '(loop (sleep 3600))'
+```
+
+**Note**: VS Code maintains session state via persistent HTTP connections, so no `MCP-Session-Id` header management is required.
 ```
 
 ## Project Structure
@@ -151,11 +166,11 @@ acl2-mcp-bridge/
 │                     MCP Clients                              │
 │              (Claude, VS Code, Cursor, etc.)                │
 └─────────────────────┬───────────────────────────────────────┘
-                      │ HTTP POST/DELETE + MCP-Session-Id header
+                      │ HTTP POST/DELETE (connection = session)
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              session-http-transport                          │
-│  • Extracts/generates session ID per MCP spec               │
+│  • Identifies session by header OR connection ID            │
 │  • Routes to session's private package                      │
 │  • Handles DELETE for session termination                   │
 └─────────────────────┬───────────────────────────────────────┘

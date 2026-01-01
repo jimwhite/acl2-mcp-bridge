@@ -156,14 +156,17 @@ Returns (values result error-p error-message)."
 
 (defun cl-define-function (name lambda-list body &optional (session *current-session*))
   "Define a function in a session's private package.
+NAME, LAMBDA-LIST, and BODY should be strings - they are read in the session's package.
 Returns (values function-name error-p error-message)."
   (unless session
     (return-from cl-define-function (values nil t "No active session")))
   (with-session (session)
     (handler-case
-        (progn
-          (eval `(defun ,name ,lambda-list ,body))
-          (values name nil nil))
+        (let ((name-sym (read-from-string name))
+              (params (read-from-string lambda-list))
+              (body-form (read-from-string body)))
+          (eval `(defun ,name-sym ,params ,body-form))
+          (values name-sym nil nil))
       (error (e)
         (values nil t (princ-to-string e))))))
 

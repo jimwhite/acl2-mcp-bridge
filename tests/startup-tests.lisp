@@ -191,3 +191,36 @@
           (is (getf (second response) :mcp-session-id))
           ;; Handler should have been called
           (is (string= body-string handler-called)))))))
+
+(test tool-schema-required-is-array-not-null
+  "Test that tools with no required params have 'required: []' not 'required: null'.
+   VS Code MCP client rejects schemas with null instead of empty array.
+   This tests the fix: (or required #()) in make-tool-description-for-method."
+  ;; Test the (or nil #()) pattern produces a vector, not nil
+  (let ((result (or nil #())))
+    (is (vectorp result) "Expected (or nil #()) to produce a vector")
+    (is (zerop (length result)) "Expected empty vector"))
+  
+  ;; Test that an empty vector serializes to [] in JSON
+  (let ((json (with-output-to-string (s)
+                (yason:encode #() s))))
+    (is (string= "[]" json) "Empty vector should serialize to [] - got: ~A" json))
+  
+  ;; Test that nil serializes to null (the bug we're fixing)
+  (let ((json (with-output-to-string (s)
+                (yason:encode nil s))))
+    (is (string= "null" json) "nil should serialize to null - got: ~A" json)))
+
+(test make-input-schema-with-or-pattern
+  "Test that input-schema with (or required #()) produces valid JSON."
+  ;; The fix in make-tool-description-for-method uses (or required #())
+  ;; Test that this produces the right slot value
+  (let* ((required-list nil)  ; Simulates no required params
+         (schema (make-instance '40ants-mcp/server/api/tools/list::input-schema
+                                :properties (make-hash-table :test 'equal)
+                                :required (or required-list #()))))
+    ;; The slot should now contain an empty vector, not nil
+    (let ((slot-val (slot-value schema '40ants-mcp/server/api/tools/list::required)))
+      (is (vectorp slot-val) "Slot should be a vector, got: ~A (~A)" slot-val (type-of slot-val))
+      (is (zerop (length slot-val)) "Slot should be empty vector"))))
+

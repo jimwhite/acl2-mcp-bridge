@@ -64,9 +64,7 @@ definitions persist in the evaluation context.")
      (list (make-instance 'text-content :text "Error: Function body cannot be empty")))
     (t
      (multiple-value-bind (result error-p error-msg)
-         (cl-define-function (read-from-string name)
-                             (read-from-string lambda-list)
-                             (read-from-string body))
+         (cl-define-function name lambda-list body)  ; Pass strings, read in session context
        (if error-p
            (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
            (list (make-instance 'text-content :text (format nil "Defined: ~A" result))))))))
@@ -130,14 +128,3 @@ Each client (identified by MCP session ID) gets its own CL evaluation context."
      (error "Unknown transport: ~A" transport))))
 
 ;; Note: 40ants-mcp has no public stop API; stopping requires terminating the process.
-
-;;; ---------------------------------------------------------------------------
-;;; Fix for 40ants-mcp JSON Schema bug: "required": null instead of []
-;;; ---------------------------------------------------------------------------
-
-(defmethod yason:encode-slots progn ((schema 40ants-mcp/server/api/tools/list::input-schema))
-  "Override JSON encoding for input-schema to output empty array instead of null for required."
-  (let ((required (slot-value schema '40ants-mcp/server/api/tools/list::required)))
-    ;; Only encode if we have a non-empty list - otherwise let other slots handle it
-    ;; but we need to always output the required field as an array
-    (yason:encode-object-element "required" (or required #()))))

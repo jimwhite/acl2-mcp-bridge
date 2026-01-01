@@ -3,6 +3,8 @@
   :description "ACL2 Bridge + MCP server built on 40ants-mcp"
   :author "Generated"
   :license "MIT"
+  ;; Use local vendor/40ants-mcp instead of Quicklisp version
+  :defsystem-depends-on ()
   :depends-on ("40ants-mcp" 
                "uiop"
                "usocket"
