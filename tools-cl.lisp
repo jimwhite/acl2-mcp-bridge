@@ -48,3 +48,17 @@
   (:result (soft-list-of text-content))
   (let ((sessions (list-cl-sessions)))
     (list (make-instance 'text-content :text (format nil "~S" sessions)))))
+
+(define-tool (cl-api start-session) ()
+  (:summary "Start a new Common Lisp session and return its id")
+  (:result (soft-list-of text-content))
+  (let ((id (start-cl-session)))
+    (list (make-instance 'text-content :text (format nil "~A" id)))))
+
+(define-tool (cl-api stop-session) (session-id)
+  (:summary "Stop and remove a Common Lisp session")
+  (:param session-id string "Session identifier to stop")
+  (:result (soft-list-of text-content))
+  (if (stop-cl-session session-id)
+      (list (make-instance 'text-content :text (format nil "Stopped ~A" session-id)))
+      (list (make-instance 'text-content :text (format nil "Session ~A not found" session-id)))))

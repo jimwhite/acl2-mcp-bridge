@@ -54,3 +54,17 @@
   (:result (soft-list-of text-content))
   (let ((sessions (list-acl2-sessions)))
     (list (make-instance 'text-content :text (format nil "~S" sessions)))))
+
+(define-tool (acl2-api start-session) ()
+  (:summary "Start a new ACL2 session and return its id")
+  (:result (soft-list-of text-content))
+  (let ((id (start-acl2-session)))
+    (list (make-instance 'text-content :text (format nil "~A" id)))))
+
+(define-tool (acl2-api stop-session) (session-id)
+  (:summary "Stop and remove an ACL2 session")
+  (:param session-id string "Session identifier to stop")
+  (:result (soft-list-of text-content))
+  (if (stop-acl2-session session-id)
+      (list (make-instance 'text-content :text (format nil "Stopped ~A" session-id)))
+      (list (make-instance 'text-content :text (format nil "Session ~A not found" session-id)))))

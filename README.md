@@ -94,6 +94,31 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
 - MCP stop is intentionally unsupported because 40ants-mcp exposes no stop API; tests assert it signals an error (see [tests/startup-tests.lisp](tests/startup-tests.lisp)).
 - FiveAM test system is wired via [acl2-mcp-bridge.asd](acl2-mcp-bridge.asd); tests mock server constructors with a local `with-redefs` helper to avoid starting real sockets.
 
+### Session lifecycle (current)
+
+- CL sessions: a missing `session_id` auto-creates a new session (default is "default") via `ensure-cl-session` (see [sessions.lisp](sessions.lisp)). There is currently **no explicit start/stop tool** for CL; garbage collection/expiry is not implemented yet.
+- ACL2 sessions: IDs are generated and stored, but lifecycle management is still stubbed; tool calls accept `session_id` and will use the default when omitted (see [acl2-interface.lisp](acl2-interface.lisp)). Start/stop tooling is a planned addition.
+
+## MCP tool reference (current)
+
+- CL tools (API `cl-api`, defined in [tools-cl.lisp](tools-cl.lisp))
+  - `eval-cl`: args `code` (string, required), `session_id` (string, optional, default "default"); returns printed result or error text.
+  - `load-file`: args `path` (string, required), `session_id` (string, optional, default "default"); loads a Lisp file and reports success/error.
+  - `define-function`: args `name` (string), `lambda_list` (string), `body` (string), `session_id` (string, optional); reads forms and interns a function in the session.
+  - `list-sessions`: no args; returns the list of active CL session IDs.
+  - `start-session`: no args; creates a new CL session and returns its id.
+  - `stop-session`: args `session_id` (string, required); removes the CL session (no-op message if missing).
+
+Notes
+- Session IDs are plain UUID strings; the default CL session ID is "default" when not provided.
+- Results are returned as a list of `text-content` items as required by 40ants-mcp.
+
+- ACL2 tools (API `acl2-api`, defined in [tools-acl2.lisp](tools-acl2.lisp))
+  - `start-session`: no args; creates a new ACL2 session and returns its id.
+  - `stop-session`: args `session_id` (string, required); removes the ACL2 session (no-op message if missing).
+  - `list-sessions`: no args; lists ACL2 sessions.
+  - Other ACL2 tools (`admit`, `check-theorem`, `verify-guards`, `query-event`) accept `session_id` (default is "default"); full ACL2 integration is pending, but session lifecycle is explicit.
+
 ## Claude Desktop config (MCP stdio example)
 
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`

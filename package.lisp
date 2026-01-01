@@ -8,6 +8,12 @@
    #:start-server
    #:start-both
    #:stop-server
+    #:start-cl-session
+    #:stop-cl-session
+    #:get-cl-session
+    #:start-acl2-session
+    #:stop-acl2-session
+    #:get-acl2-session
     #:initialize-acl2-interface
     #:*acl2-executable*
    #:*bridge-server*

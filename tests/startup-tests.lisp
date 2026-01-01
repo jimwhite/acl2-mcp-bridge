@@ -92,3 +92,19 @@
   (let ((*mcp-server* :mcp))
     (signals error (stop-server :protocol :mcp))
     (signals error (stop-server :protocol :all))))
+
+(test cl-session-start-stop
+  (let ((*cl-sessions* (make-hash-table :test 'equal)))
+    (let ((id (start-cl-session)))
+      (is (stringp id))
+      (is (get-cl-session id))
+      (is (stop-cl-session id))
+      (is (null (get-cl-session id))))))
+
+(test acl2-session-start-stop
+  (let ((*acl2-sessions* (make-hash-table :test 'equal)))
+    (let ((id (start-acl2-session)))
+      (is (stringp id))
+      (is (get-acl2-session id))
+      (is (stop-acl2-session id))
+      (is (null (get-acl2-session id))))))
