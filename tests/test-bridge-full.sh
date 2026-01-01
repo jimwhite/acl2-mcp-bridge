@@ -5,7 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
 
 # Clean up any existing processes
 echo "=== Cleaning up old processes ==="
@@ -53,7 +54,7 @@ cat > /tmp/start-bridge.lisp << 'EOF'
 (sleep 1000)  ; Keep alive
 EOF
 
-cd "$SCRIPT_DIR"
+cd "$PROJECT_DIR"
 acl2 < /tmp/start-bridge.lisp > /tmp/bridge-server.log 2>&1 &
 SERVER_PID=$!
 
@@ -61,7 +62,10 @@ echo "Server PID: $SERVER_PID"
 
 # Wait for server to be ready
 echo "Waiting for server to start..."
-source .venv/bin/activate
+# Use VIRTUAL_ENV if set, otherwise activate .venv
+if [ -z "$VIRTUAL_ENV" ]; then
+    source "$PROJECT_DIR/.venv/bin/activate"
+fi
 for i in {1..30}; do
     if python3 -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1', 55433)); s.close()" 2>/dev/null; then
         echo "Server is ready on port 55433"
