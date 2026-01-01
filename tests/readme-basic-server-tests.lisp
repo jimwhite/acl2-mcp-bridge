@@ -15,58 +15,29 @@
           do (sleep 0.1))
     (ignore-errors (uiop:wait-process proc))))
 
-(defun %launch-readme-server (&key (timeout 15))
+(defun %launch-readme-server (&key (startup-wait 12))
   "Start the README basic server over HTTP on a random port. Returns (values proc port)."
   (let* ((port (%pick-port))
          (script (namestring (merge-pathnames "tests/readme-basic-server.lisp"
                                                (uiop:getcwd))))
-         ;; Use shell to set MCP_PORT and run sbcl
+         ;; Use /usr/bin/env to set MCP_PORT, discard output to avoid blocking
          (proc (uiop:launch-program
-                (format nil "MCP_PORT=~D sbcl --noinform --disable-debugger --script ~A" port script)
-                :output :stream
-                :error-output :stream)))
-    ;; Wait for HTTP port to become ready
-    (labels ((ready-p ()
-               (handler-case
-                   (usocket:with-client-socket (sock stream "127.0.0.1" port
-                                                    :element-type 'character
-                                                    :timeout 0.1)
-                     (declare (ignore sock stream))
-                     t)
-                 (error () nil))))
-      (loop repeat (ceiling (* 10 timeout))
-            when (ready-p) return (values proc port)
-            do (sleep 0.1)
-            finally
-              (%stop-proc proc)
-              (error "README server failed to start within ~A seconds." timeout)))))
+                (list "/usr/bin/env" (format nil "MCP_PORT=~D" port)
+                      "sbcl" "--noinform" "--disable-debugger" "--script" script)
+                :output nil
+                :error-output nil)))
+    ;; Wait for server to start (quicklisp load takes time)
+    (sleep startup-wait)
+    (values proc port)))
 
-(defun %http-post (port payload &key (timeout 5))
-  "Send a raw HTTP POST with PAYLOAD JSON to /mcp and return body as string."
-  (let* ((len (length payload))
-         (req (format nil "POST /mcp HTTP/1.1~c~chost: 127.0.0.1~c~ccontent-type: application/json~c~ccontent-length: ~d~c~c~%~a"
-                       #\Return #\Linefeed #\Return #\Linefeed #\Return #\Linefeed len #\Return #\Linefeed payload))
-         (body ""))
-    (handler-case
-        (usocket:with-client-socket (sock stream "127.0.0.1" port
-                                         :element-type 'character
-                                         :timeout timeout)
-          (write-string req stream)
-          (finish-output stream)
-          (let ((content-length 0))
-            (loop for line = (read-line stream nil nil)
-                  while (and line (not (string= line ""))) do
-                    (when (alexandria:starts-with-subseq "Content-Length:" line :test #'char-equal)
-                      (setf content-length
-                            (parse-integer (string-trim '(#\Space #\Tab)
-                                                        (subseq line 15))))))
-            (setf body (with-output-to-string (s)
-                         (dotimes (_ content-length)
-                           (let ((ch (read-char stream nil nil)))
-                             (when ch (write-char ch s))))))))
-        (error ()
-          (error "HTTP connection refused")))
-    body))
+(defun %http-post (port payload)
+  "Send HTTP POST with PAYLOAD JSON to /mcp using curl. Returns body string."
+  (uiop:run-program
+   (list "curl" "-s" "-X" "POST"
+         (format nil "http://127.0.0.1:~D/mcp" port)
+         "-H" "Content-Type: application/json"
+         "-d" payload)
+   :output :string))
 
 (test readme-tools-list-http
   (multiple-value-bind (proc port) (%launch-readme-server)
