@@ -10,6 +10,37 @@ A Model Context Protocol (MCP) server for ACL2 theorem proving and Common Lisp e
 - **ACL2 Integration**: Theorem proving tools (admit, check-theorem, verify-guards)
 - **Legacy Bridge Protocol**: Backward compatible with ACL2 Bridge TCP protocol
 
+## Key Features
+### 1. ACL2 Theorem Proving Tools (from septract/acl2-mcp)
+- **check-theorem** - Verify a specific theorem
+- **admit** - Admit an event (function/theorem)
+- **query-event** - Retrieve event definitions and properties
+- **verify-guards** - Check guard conditions
+- **prove-theorem** - Attempt automated proofs
+- **check-book** - Validate an entire ACL2 book
+- **get-event-history** - Retrieve proof history
+- **undo-to-point** - Revert to earlier state
+
+### 2. Common Lisp REPL Integration (native + bridge)
+- **eval-cl** - Evaluate Common Lisp expressions
+- **cl-repl-session** - Persistent CL REPL session
+- **load-file** - Load Lisp source files
+- **define-function** - Define CL functions dynamically
+- **query-cl-package** - Introspect packages
+
+### 3. Bridge & Interop Tools
+- **bridge-acl2-to-cl** - Send ACL2 data to CL
+- **bridge-cl-to-acl2** - Send CL data to ACL2
+- **acl2-cl-eval** - Cross-language evaluation
+- **get-dependencies** - Analyze theorem dependencies
+
+### 4. Code Analysis & Transformation
+- **extract-lemmas** - Get supporting lemmas
+- **suggest-proofs** - AI-assisted proof suggestions
+- **dependency-graph** - Visualize proof dependencies
+- **trace-execution** - Debug theorem proving
+
+
 ## Quick Start
 
 ### Running Inside ACL2
@@ -298,4 +329,4 @@ Each `*x*` and `foo` lives in a separate package (`SESSION-abc123` vs `SESSION-x
 
 ## License
 
-MIT License - See [LICENSE](LICENSE)
+BSD 3-Clause License - See [LICENSE](LICENSE)
