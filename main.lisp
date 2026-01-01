@@ -5,18 +5,21 @@
 (defparameter *bridge-server* nil)
 (defparameter *mcp-server* nil)
 
-(defun start-server (&key (protocol :bridge) (transport :stdio) port host acl2-path)
+(defun start-server (&key (protocol :bridge) (transport :http) port host acl2-path)
   "Start the server with specified protocol.
 
-   :protocol :bridge   - ACL2 Bridge protocol (TCP, port 13721)
+   :protocol :bridge   - ACL2 Bridge protocol (TCP, default port 55433)
    :protocol :mcp      - Model Context Protocol
 
-   :transport :stdio   - Standard input/output (for MCP)
    :transport :http    - HTTP server (for MCP, requires :port)
+   
+   Note: stdio transport is NOT supported because ACL2's startup banners
+   and prompts would corrupt the JSON-RPC stream.
 
    :port               - Port number (for Bridge or MCP HTTP)
    :host               - Host binding (HTTP transport only)
-   :acl2-path          - Optional ACL2 executable path"
+   :acl2-path          - Ignored (we run inside ACL2)"
+  (declare (ignore acl2-path))
   (case protocol
     (:bridge
      (setf *bridge-server*
@@ -24,7 +27,9 @@
      (log:info "ACL2 Bridge server started on port ~A" (or port *bridge-port*))
      *bridge-server*)
     (:mcp
-     (initialize-acl2-interface acl2-path)
+     (when (eq transport :stdio)
+       (error "stdio transport not supported - ACL2 output noise corrupts JSON-RPC. Use :http"))
+     (initialize-acl2-interface)
      (log:info "MCP server starting via 40ants-mcp (~A transport)" transport)
      (setf *mcp-server*
        (start-mcp-server :transport transport :host host :port port))
@@ -32,12 +37,12 @@
     (otherwise
      (error "Unknown protocol: ~A" protocol))))
 
-(defun start-both (&key (bridge-port *bridge-port*) (mcp-transport :stdio) host acl2-path)
+(defun start-both (&key (bridge-port *bridge-port*) (mcp-port 8085) host)
   "Start both Bridge and MCP servers (multi-protocol support).
 
 Returns two values: bridge server and MCP server."
   (let ((bridge (start-server :protocol :bridge :port bridge-port))
-        (mcp (start-server :protocol :mcp :transport mcp-transport :host host :acl2-path acl2-path)))
+        (mcp (start-server :protocol :mcp :transport :http :host host :port mcp-port)))
     (log:info "Both Bridge and MCP servers running")
     (values bridge mcp)))
 

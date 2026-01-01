@@ -12,20 +12,30 @@ A Model Context Protocol (MCP) server for ACL2 theorem proving and Common Lisp e
 
 ## Quick Start
 
-### HTTP Transport (recommended for multi-client)
+### Running Inside ACL2
+
+The server runs inside ACL2 (not standalone SBCL), giving direct access to ACL2's theorem prover.
 
 ```bash
-sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
-     --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)' \
-     --eval '(loop (sleep 1))'
+# Start ACL2 and load the bridge
+acl2
+:q  ; Exit ACL2 loop to raw Lisp
+
+;; Load quicklisp and the bridge
+(load "~/quicklisp/setup.lisp")
+(ql:quickload :acl2-mcp-bridge)
+
+;; Start MCP HTTP server on port 8085
+(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
+
+;; Or start Bridge protocol on port 55433
+(acl2-mcp-bridge:start-server :protocol :bridge :port 55433)
+
+;; Or start both
+(acl2-mcp-bridge:start-both :bridge-port 55433 :mcp-port 8085)
 ```
 
-### STDIO Transport (for single-client tools)
-
-```bash
-sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
-     --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio)'
-```
+**Note**: stdio transport is NOT supported because ACL2's startup banners and prompts would corrupt the JSON-RPC stream. Use HTTP transport instead.
 
 ## MCP Session Management
 
@@ -124,17 +134,16 @@ VS Code's MCP implementation uses Streamable HTTP with persistent connections. A
 }
 ```
 
-Then start the server separately:
+Then start the server from ACL2:
 
-```bash
-sbcl --noinform --disable-debugger \
-     --eval '(ql:quickload :acl2-mcp-bridge)' \
-     --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)' \
-     --eval '(loop (sleep 3600))'
+```lisp
+;; In ACL2 raw mode (:q to exit ACL2 loop)
+(load "~/quicklisp/setup.lisp")
+(ql:quickload :acl2-mcp-bridge)
+(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
 ```
 
 **Note**: VS Code maintains session state via persistent HTTP connections, so no `MCP-Session-Id` header management is required.
-```
 
 ## Project Structure
 
