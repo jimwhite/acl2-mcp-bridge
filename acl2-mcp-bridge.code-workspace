@@ -11,8 +11,9 @@
 		"mcp": {
 			"servers": {
 				"acl2-mcp-bridge": {
-					"type": "http",
-					"url": "http://127.0.0.1:8085/mcp"
+					"type": "stdio",
+					"command": "python3",
+					"args": ["/workspaces/acl2-mcp-bridge/acl2-mcp-stdio.py"]
 				}
 			}
 		}

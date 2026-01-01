@@ -59,5 +59,9 @@
 (defpackage #:bridge
   (:use)  ; No uses - symbols accessed via bridge:: prefix
   (:export #:in-main-thread
-           #:try-in-main-thread))
+           #:try-in-main-thread
+           ;; Socket primitives for Unix socket support
+           #:ccl-make-socket-unix
+           #:ccl-accept-connection
+           #:ccl-close-socket))
 
