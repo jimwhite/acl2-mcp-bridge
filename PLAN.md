@@ -4,12 +4,20 @@
 Build a reliable ACL2 bridge server that supports the legacy Bridge protocol, Model Context Protocol (MCP) via 40ants-mcp, and a CL REPL, reusing proven ACL2 components (ACL2 Bridge, acl2-mcp, and ACL2 system books). Development must be TDD-first with no reliance on draft stubs.
 
 ## Current State (survey)
-- Core functions for ACL2 interaction are stubs (see [acl2-interface.lisp](acl2-interface.lisp)). Session structs exist but have no real ACL2 I/O.
-- Bridge protocol server exists but depends on stubbed ACL2 eval (see [bridge-protocol.lisp](bridge-protocol.lisp)).
-- MCP tool registration is inconsistent: MCP tools are defined in [tools-acl2.lisp](tools-acl2.lisp), [tools-cl.lisp](tools-cl.lisp), [tools-bridge.lisp](tools-bridge.lisp), and additional draft registrations in [mcp-tools.lisp](mcp-tools.lisp). No tests assert API shapes.
-- Duplicate `start-server` entry points in [main.lisp](main.lisp) and [mcp-server.lisp](mcp-server.lisp); unclear which should be public.
-- Threading helpers are stubbed (see [threading-utils.lisp](threading-utils.lisp)), so ACL2 main-thread constraints are not honored.
-- No automated tests present in this repo.
+- ACL2 integration remains stubbed: [acl2-interface.lisp](acl2-interface.lisp) defines session plumbing and UUID IDs but no real ACL2 I/O yet.
+- Bridge protocol server is present and framed correctly; message framing is now covered by tests (see [bridge-protocol.lisp](bridge-protocol.lisp) and [tests/message-format-tests.lisp](tests/message-format-tests.lisp)).
+- MCP tool registration lives in [tools-acl2.lisp](tools-acl2.lisp), [tools-cl.lisp](tools-cl.lisp), and [tools-bridge.lisp](tools-bridge.lisp); [mcp-tools.lisp](mcp-tools.lisp) is no longer loaded by the system.
+- Server startup is unified: [main.lisp](main.lisp) exports `start-server`, `start-both`, and `stop-server`, delegating to [mcp-server.lisp](mcp-server.lisp) for MCP startup. MCP stop is intentionally unsupported (no API in 40ants-mcp); tests assert the error behavior.
+- Threading helpers are still stubbed (see [threading-utils.lisp](threading-utils.lisp)); ACL2 main-thread serialization remains to be built.
+- FiveAM test system exists with two suites: startup dispatch/stop coverage and bridge message framing (see [tests/startup-tests.lisp](tests/startup-tests.lisp)).
+- Environment notes: requires Ultralisp for 40ants-mcp and a local clone of `cxxxr/jsonrpc` to provide `jsonrpc/transport/http` for MCP HTTP transport.
+
+## Recent Work / Learnings
+- Added FiveAM test system wired via ASDF; tests mock server entry points with a local `with-redefs` helper to avoid opening sockets.
+- Reordered [acl2-mcp-bridge.asd](acl2-mcp-bridge.asd) so API tool definitions load before the MCP server; removed `mcp-tools` from the system to avoid duplicate registrations.
+- Fixed Bridge message framing to preserve newline expectations and validated with round-trip tests.
+- Clarified shutdown semantics: Bridge stop closes the listener; MCP stop is unsupported and should be handled by process restart.
+- Session IDs use stringified UUIDs for both ACL2 and CL registries.
 
 ## External Assets to Reuse
 - ACL2 Bridge book: `/home/acl2/books/centaur/bridge/` provides battle-tested bridge framing and ACL2 orchestration.
@@ -44,8 +52,8 @@ Build a reliable ACL2 bridge server that supports the legacy Bridge protocol, Mo
   - Integration: bridge protocol over loopback with a stub ACL2 backend.
 
 ## Immediate Next Steps
-1. Choose and wire a test framework; add ASDF test system skeleton.
-2. Reconcile startup API (remove duplication between main and mcp-server) under tests.
-3. Implement bridge message framing tests and harden code accordingly.
-4. Sketch ACL2 adapter using the Bridge book; prototype with a fake backend to unlock tests.
-5. Add MCP tool contract tests to pin down OpenRPC definitions before implementing behavior.
+1. Implement ACL2 adapter backed by the Bridge book or a managed ACL2 process; surface real outputs/errors in tool responses.
+2. Add session-registry and ACL2/CL adapter tests (including locking semantics and main-thread serialization once implemented).
+3. Add MCP tool contract tests (OpenRPC shapes) with a fake ACL2 backend to pin request/response formats.
+4. Introduce integration tests for Bridge and MCP over loopback once real ACL2 plumbing lands; keep a skip/marker for environments lacking ACL2.
+5. Decide whether `mcp-tools.lisp` should be deleted or merged into the active tool definitions to avoid drift.

@@ -20,6 +20,11 @@ acl2-mcp-bridge/
 ├── tools-bridge.lisp
 ├── mcp-server.lisp
 ├── mcp-tools.lisp
+├── tests/
+│   ├── package.lisp
+│   ├── startup-tests.lisp
+│   ├── message-format-tests.lisp
+│   └── run-tests.lisp
 └── README.md
 ```
 
@@ -68,6 +73,26 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
 ```lisp
 (acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
 ```
+
+### Shutdown behavior
+
+- Bridge: `(acl2-mcp-bridge:stop-server :protocol :bridge)` closes the socket listener.
+- MCP: the 40ants-mcp server has no public stop hook; restart the hosting process if you need to stop MCP.
+
+### Environment and dependencies (development)
+
+- Quicklisp + Ultralisp are expected so `40ants-mcp` resolves cleanly.
+- `jsonrpc/transport/http` is not in the main Quicklisp dist; clone https://github.com/cxxxr/jsonrpc into `~/quicklisp/local-projects/` (already present in this workspace) to satisfy MCP HTTP transport.
+- ASDF is configured to scan this repo via `ASDF_SOURCE_REGISTRY='(:source-registry (:tree "/workspaces/acl2-mcp-bridge/") :inherit-configuration)'`.
+- ACL2 image available at `/opt/acl2/bin/saved_acl2`; `ACL2_PATH` can be set to override.
+- Session IDs use UUID strings (see [sessions.lisp](sessions.lisp)).
+
+### Development learnings
+
+- `start-server` dispatches protocols; `start-both` simply calls both paths (see [main.lisp](main.lisp)).
+- Message framing follows the Bridge spec: `TYPE len\ncontent\n` and is validated by tests (see [message-format.lisp](message-format.lisp) and [tests/message-format-tests.lisp](tests/message-format-tests.lisp)).
+- MCP stop is intentionally unsupported because 40ants-mcp exposes no stop API; tests assert it signals an error (see [tests/startup-tests.lisp](tests/startup-tests.lisp)).
+- FiveAM test system is wired via [acl2-mcp-bridge.asd](acl2-mcp-bridge.asd); tests mock server constructors with a local `with-redefs` helper to avoid starting real sockets.
 
 ## Claude Desktop config (MCP stdio example)
 
@@ -180,7 +205,7 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
 
   ```bash
   sbcl --eval '(ql:quickload :acl2-mcp-bridge/tests)' \
-    --eval '(run-tests)' \
+    --eval '(acl2-mcp-bridge/tests::run-tests)' \
     --quit
   ```
 
