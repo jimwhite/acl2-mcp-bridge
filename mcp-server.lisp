@@ -10,7 +10,4 @@ HOST is only applied for HTTP transports; PORT is forwarded when provided."
                        (when (and host (eq transport :http)) (list :host host)))))
     (apply #'40ants-mcp/server/definition:start-server (cons apis args))))
 
-(defun stop-mcp-server (server)
-  "Stop a running MCP server instance if present."
-  (when server
-    (40ants-mcp/server/definition:stop-server server)))
+;; Note: 40ants-mcp has no public stop API; stopping requires terminating the process.

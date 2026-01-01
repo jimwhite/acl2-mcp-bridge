@@ -54,8 +54,8 @@ Returns two values: bridge server and MCP server."
        (setf *bridge-server* nil)))
     (:mcp
      (when *mcp-server*
-       (stop-mcp-server *mcp-server*)
-       (setf *mcp-server* nil)))
+       ;; 40ants-mcp does not expose a stop API; require process restart.
+       (error "MCP stop not supported; restart the process to stop MCP")))
     (:all
      (stop-server :protocol :bridge)
      (stop-server :protocol :mcp))))

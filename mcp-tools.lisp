@@ -134,4 +134,4 @@
        (let ((result (bridge-cl-to-acl2-impl data cl-session-id acl2-session-id)))
          (list (text-content result)))
        (error (e)
-        (list (text-content (format nil "Bridge error: ~A" e))))))))
+        (list (text-content (format nil "Bridge error: ~A" e)))))))))

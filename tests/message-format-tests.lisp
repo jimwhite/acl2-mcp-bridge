@@ -1,6 +1,7 @@
 (in-package #:acl2-mcp-bridge/tests)
 
-(defsuite message-format-suite)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (def-suite message-format-suite))
 
 (in-suite message-format-suite)
 
