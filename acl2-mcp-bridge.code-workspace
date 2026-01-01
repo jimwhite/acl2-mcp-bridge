@@ -25,7 +25,8 @@
 					"env": {
 						"ASDF_SOURCE_REGISTRY": "(:source-registry (:tree \"/workspaces/acl2-mcp-bridge/\") :inherit-configuration)",
 						"CL_SOURCE_REGISTRY": "/workspaces/acl2-mcp-bridge//:"
-					}
+					},
+					"url": "http://127.0.0.1:8085/mcp"
 				}
 			},
 			"inputs": []

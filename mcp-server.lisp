@@ -29,7 +29,23 @@ aggregation across API collections."
                                 (:http (make-instance 'http-transport :port port)))))
       (start-loop transport-instance
                   (lambda (message)
-                    (handle-message rpc-server message)))
+                    (cond
+                      ;; Empty body -> JSON-RPC parse error
+                      ((or (null message)
+                           (and (stringp message) (string= message "")))
+                       (log:error "Empty MCP message received; returning parse error")
+                       "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32700,\"message\":\"Parse error (empty body)\"},\"id\":null}")
+                      (t
+                       (let ((response
+                               (handler-case
+                                   (handle-message rpc-server message)
+                                 (error (e)
+                                   (log:error "Unhandled MCP handler error: ~A" e)
+                                   (format nil
+                                           "{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"error\\\":{\\\"code\\\":-32000,\\\"message\\\":\\\"~A\\\"},\\\"id\\\":null}"
+                                           e)))))
+                         (or response
+                             "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32700,\"message\":\"Parse error (empty body)\"},\"id\":null}"))))))
       transport-instance)))
 
 ;; Note: 40ants-mcp has no public stop API; stopping requires terminating the process.

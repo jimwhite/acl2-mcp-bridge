@@ -124,3 +124,16 @@
         (is (typep result '40ants-mcp/http-transport:http-transport))
         (is (member "list_sessions" exposed :test #'string=))
         (is (member "eval_cl" exposed :test #'string=))))))
+
+(test eval-cl-jsonrpc-roundtrip
+  ;; Simulate the HTTP handler path: build a JSON-RPC server, expose methods, and dispatch eval_cl.
+  (let* ((apis (list acl2-api cl-api bridge-api))
+         (rpc-server (jsonrpc:make-server)))
+    (dolist (api apis)
+      (maphash (lambda (name method-info)
+                 (jsonrpc:expose rpc-server name (openrpc-server/method:method-thunk method-info)))
+               (openrpc-server:api-methods api)))
+    (let* ((payload "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eval_cl\",\"params\":{\"code\":\"'(1 2 3 4)\"}}")
+           (response (40ants-mcp/server/definition:handle-message rpc-server payload)))
+      (is (stringp response))
+      (is (search "1 2 3 4" response)))))
