@@ -25,3 +25,16 @@
                (:file "tools-cl")
                (:file "tools-bridge")
                (:file "main")))
+
+(asdf:defsystem "acl2-mcp-bridge/tests"
+  :description "Tests for acl2-mcp-bridge"
+  :author "Generated"
+  :license "MIT"
+  :depends-on ("acl2-mcp-bridge" "fiveam")
+  :components ((:module "tests"
+                :serial t
+                :components ((:file "package")
+                             (:file "message-format-tests")
+                             (:file "run-tests"))))
+  :perform (test-op (op c)
+             (uiop:symbol-call '#:acl2-mcp-bridge/tests '#:run-tests)))

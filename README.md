@@ -227,9 +227,12 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
   ## References
 
   - [ACL2 Documentation](https://www.cs.utexas.edu/~moore/acl2/)
+  - [ACL2 GitHub](https://github.com/acl2/acl2)
   - [Model Context Protocol](https://modelcontextprotocol.io/)
+  - [ACL2 Bridge book source](https://github.com/acl2/acl2/tree/master/books/centaur/bridge)
   - [40ants-mcp Framework](https://github.com/40ants/mcp)
   - [septract/acl2-mcp](https://github.com/septract/acl2-mcp)
+    - [jimwhite/acl2-mcp](https://github.com/jimwhite/acl2-mcp) some improvements in ACL2 output
 
   ## Notes and next steps
 
