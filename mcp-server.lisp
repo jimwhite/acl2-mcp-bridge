@@ -11,10 +11,11 @@
   (handler-case
       (let* ((pkg (or (and package-name (find-package (string-upcase package-name))) :cl-user))
              (*package* (find-package pkg)))
-        (multiple-value-bind (result)
-            (eval (read-from-string code))
+        (let ((results (multiple-value-list (eval (read-from-string code)))))
           (list (make-instance 'text-content 
-                              :text (format nil "~S" result)))))
+                              :text (if (= 1 (length results))
+                                        (format nil "~S" (first results))
+                                        (format nil "~{~S~^~%~}" results))))))
     (error (e)
       (list (make-instance 'text-content 
                           :text (format nil "Error: ~A" e))))))

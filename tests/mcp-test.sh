@@ -72,7 +72,7 @@ Expected: $( [ "$expect_success" = "true" ] && echo "Success" || echo "Error" )
 Response: $response
 
 Rules:
-- For empty input edge cases, 'end of file' errors are valid/expected behavior (PASS)
+- For empty input or incomplete syntax (missing parens), 'end of file' errors are valid/expected (PASS)
 - Error messages indicating the input was invalid are correct for edge cases
 - Success means meaningful output without crashes
 
