@@ -50,7 +50,6 @@ cat > /tmp/start-bridge-unix.lisp << EOF
 
 ; Start with *no-main-thread* since we're testing simple commands
 (setq bridge::*no-main-thread* t)
-(setq bridge::*bridge-debug* t)
 
 ; Start on Unix socket
 (format t "~%Starting Bridge on Unix socket: $SOCKET_PATH~%")
@@ -134,42 +133,43 @@ sock.settimeout(10)
 
 # Should receive HELLO
 msg_type, content = read_message(sock)
-print(f"Got: {msg_type} = {content}")
 assert msg_type == "ACL2_BRIDGE_HELLO", f"Expected HELLO, got {msg_type}"
+print("Connected!")
 
 # Should receive READY
 msg_type, content = read_message(sock)
-print(f"Got: {msg_type} = {content}")
 assert msg_type == "READY", f"Expected READY, got {msg_type}"
 
 # Test 1: Simple arithmetic
-print("\nTest 1: (+ 1 2)")
+print("Test 1: (+ 1 2)...", end=" ")
 send_command(sock, "LISP", "(+ 1 2)")
 
+result = None
 while True:
     msg_type, content = read_message(sock)
-    print(f"Got: {msg_type} = {content}")
     if msg_type == "READY":
         break
     if msg_type == "RETURN":
-        assert "3" in content, f"Expected 3, got {content}"
-        print("PASS")
+        result = content
+assert result and "3" in result, f"Expected 3, got {result}"
+print("PASS")
 
 # Test 2: Multiplication
-print("\nTest 2: (* 6 7)")
+print("Test 2: (* 6 7)...", end=" ")
 send_command(sock, "LISP", "(* 6 7)")
 
+result = None
 while True:
     msg_type, content = read_message(sock)
-    print(f"Got: {msg_type} = {content}")
     if msg_type == "READY":
         break
     if msg_type == "RETURN":
-        assert "42" in content, f"Expected 42, got {content}"
-        print("PASS")
+        result = content
+assert result and "42" in result, f"Expected 42, got {result}"
+print("PASS")
 
 sock.close()
-print("\n=== All Python Bridge tests passed! ===")
+print("\nAll tests passed!")
 PYTEST
 
 echo ""

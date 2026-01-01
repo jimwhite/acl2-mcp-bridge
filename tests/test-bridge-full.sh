@@ -43,7 +43,6 @@ cat > /tmp/start-bridge.lisp << 'EOF'
 
 ; Start with *no-main-thread* since we're testing simple commands
 (setq bridge::*no-main-thread* t)
-(setq bridge::*bridge-debug* t)
 
 ; Start just the listener (not blocking main-thread-loop)
 (format t "~%Starting Bridge on port 55433...~%")
@@ -97,7 +96,6 @@ import sys
 
 def read_message(sock):
     """Read a Bridge protocol message."""
-    # Read header line
     header = b""
     while not header.endswith(b"\n"):
         c = sock.recv(1)
@@ -109,7 +107,6 @@ def read_message(sock):
     msg_type = parts[0]
     length = int(parts[1]) if len(parts) > 1 else 0
     
-    # Read content
     content = b""
     while len(content) < length:
         chunk = sock.recv(length - len(content))
@@ -117,9 +114,7 @@ def read_message(sock):
             break
         content += chunk
     
-    # Read trailing newline
-    sock.recv(1)
-    
+    sock.recv(1)  # trailing newline
     return msg_type, content.decode()
 
 def send_command(sock, cmd_type, content):
@@ -127,65 +122,52 @@ def send_command(sock, cmd_type, content):
     msg = f"{cmd_type} {len(content)}\n{content}\n"
     sock.sendall(msg.encode())
 
-print("Connecting to Bridge server...")
+print("Connecting to Bridge server on port 55433...")
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(("127.0.0.1", 55433))
 sock.settimeout(10)
 
 # Should receive HELLO
 msg_type, content = read_message(sock)
-print(f"Got: {msg_type} = {content}")
 assert msg_type == "ACL2_BRIDGE_HELLO", f"Expected HELLO, got {msg_type}"
+print("Connected!")
 
 # Should receive READY
 msg_type, content = read_message(sock)
-print(f"Got: {msg_type} = {content}")
 assert msg_type == "READY", f"Expected READY, got {msg_type}"
 
-# Send a simple command
-print("\nSending command: (+ 1 2)")
+# Test 1: (+ 1 2)
+print("Test 1: (+ 1 2)...", end=" ")
 send_command(sock, "LISP", "(+ 1 2)")
 
-# Read response(s) until we get RETURN or ERROR
+result = None
 while True:
     msg_type, content = read_message(sock)
-    print(f"Got: {msg_type} = {content}")
-    if msg_type in ("RETURN", "ERROR"):
-        break
-    if msg_type == "READY":
-        print("Got READY without RETURN - something wrong")
+    if msg_type == "RETURN":
+        result = content
+    if msg_type in ("READY", "ERROR"):
         break
 
-if msg_type == "RETURN":
-    print(f"\nSUCCESS: Got return value: {content}")
-    assert content.strip() == "3", f"Expected 3, got {content}"
-else:
-    print(f"\nFAILURE: Got error: {content}")
-    sys.exit(1)
+assert result and result.strip() == "3", f"Expected 3, got {result}"
+print("PASS")
 
-# Test another command
-print("\nSending command: (* 6 7)")
-# First consume READY
-msg_type, content = read_message(sock)
-print(f"Got: {msg_type} = {content}")
-
+# Test 2: (* 6 7)
+print("Test 2: (* 6 7)...", end=" ")
 send_command(sock, "LISP", "(* 6 7)")
 
+result = None
 while True:
     msg_type, content = read_message(sock)
-    print(f"Got: {msg_type} = {content}")
-    if msg_type in ("RETURN", "ERROR"):
+    if msg_type == "RETURN":
+        result = content
+    if msg_type in ("READY", "ERROR"):
         break
 
-if msg_type == "RETURN":
-    print(f"\nSUCCESS: Got return value: {content}")
-    assert content.strip() == "42", f"Expected 42, got {content}"
-else:
-    print(f"\nFAILURE: Got error: {content}")
-    sys.exit(1)
+assert result and result.strip() == "42", f"Expected 42, got {result}"
+print("PASS")
 
 sock.close()
-print("\n=== All tests passed! ===")
+print("\nAll tests passed!")
 PYTHON_TEST
 
 TEST_RESULT=$?
