@@ -14,7 +14,12 @@
       (cl-eval code :session-id (or session-id "default"))
     (if error-p
       (list (make-instance 'text-content :text (format nil "ERROR: ~A" error-msg)))
-      (list (make-instance 'text-content :text (format nil "~S" results))))))
+      ;; Format results: single value as itself, multiple values with indication
+      (list (make-instance 'text-content 
+              :text (cond
+                     ((null results) "NIL")
+                     ((null (cdr results)) (format nil "~S" (car results)))
+                     (t (format nil "~{~S~^~%~}" results))))))))
 
 (define-tool (cl-api load-file) (path &optional session-id)
   (:summary "Load a Common Lisp file in a session")

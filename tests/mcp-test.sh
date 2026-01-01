@@ -321,8 +321,32 @@ else
   record_fail
 fi
 
-# Note: CL sessions share global special variables (defvar/defparameter) 
-# This is expected - sessions manage packages and history, not variable isolation
+# Test 3: Multiple sessions work (note: sessions share state in single-process model)
+echo -n "  • Multiple sessions (session tracking)... "
+
+SESSION_A=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 30 | jq -r '.result.content[0].text')
+SESSION_B=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 31 | jq -r '.result.content[0].text')
+
+# Verify both sessions exist and have different IDs
+LIST=$(mcp_call "tools/call" '{"name":"list_sessions","arguments":{}}' 32 | jq -r '.result.content[0].text')
+
+# Check that both session IDs appear in the list and are different
+if [ "$SESSION_A" != "$SESSION_B" ] && \
+   echo "$LIST" | grep -q "$SESSION_A" && \
+   echo "$LIST" | grep -q "$SESSION_B"; then
+  echo "PASS"
+  record_pass
+else
+  echo "FAIL"
+  echo "    Session A: $SESSION_A"
+  echo "    Session B: $SESSION_B"
+  echo "    List: $LIST"
+  record_fail
+fi
+
+# Clean up
+mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_A\"}}" 33 > /dev/null
+mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_B\"}}" 34 > /dev/null
 
 echo ""
 
