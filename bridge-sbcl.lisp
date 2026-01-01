@@ -52,23 +52,43 @@
 (defun ccl-getenv (name)
   (uiop:getenv name))
 
-;;; Socket primitives (using usocket)
+;;; Socket primitives (using usocket for TCP, sb-bsd-sockets for Unix)
 (defun ccl-make-socket-tcp (port)
   (usocket:socket-listen "0.0.0.0" port :reuse-address t :element-type 'character))
 
 (defun ccl-make-socket-unix (path)
-  ;; usocket doesn't support unix sockets well on all platforms
-  ;; For now, error out
-  (error "Unix domain sockets not yet supported in SBCL port. Use TCP port instead."))
+  "Create a Unix domain socket at PATH."
+  ;; Use SBCL's native sb-bsd-sockets for Unix sockets
+  (require :sb-bsd-sockets)
+  (let ((socket (make-instance 'sb-bsd-sockets:local-socket :type :stream)))
+    ;; Remove existing socket file if present
+    (when (probe-file path)
+      (delete-file path))
+    (sb-bsd-sockets:socket-bind socket path)
+    (sb-bsd-sockets:socket-listen socket 5)
+    socket))
 
 (defun ccl-accept-connection (server-socket)
-  (let ((client (usocket:socket-accept server-socket)))
-    (usocket:socket-stream client)))
+  "Accept a connection and return a bidirectional stream."
+  (etypecase server-socket
+    (usocket:stream-server-usocket
+     (let ((client (usocket:socket-accept server-socket)))
+       (usocket:socket-stream client)))
+    (sb-bsd-sockets:local-socket
+     (let ((client-socket (sb-bsd-sockets:socket-accept server-socket)))
+       (sb-bsd-sockets:socket-make-stream client-socket
+                                          :input t :output t
+                                          :element-type 'character
+                                          :buffering :line)))))
 
 (defun ccl-close-socket (socket &key abort)
-  (if (typep socket 'usocket:usocket)
-      (usocket:socket-close socket)
-      (close socket :abort abort)))
+  (etypecase socket
+    (usocket:usocket
+     (usocket:socket-close socket))
+    (sb-bsd-sockets:socket
+     (sb-bsd-sockets:socket-close socket))
+    (stream
+     (close socket :abort abort))))
 
 ;;; Process/thread creation
 (defun ccl-process-run-function (options function &rest args)
