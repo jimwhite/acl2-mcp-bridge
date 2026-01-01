@@ -10,7 +10,8 @@
                "local-time"
                "cl-ppcre"
                "yason"
-               "log4cl")
+               "log4cl"
+               "uuid")
   :serial t
   :components ((:file "package")
                (:file "config")

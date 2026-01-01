@@ -17,7 +17,9 @@
     // remoteEnv supports ${containerEnv:VAR} syntax for PATH modification
     "remoteEnv": {
         "VIRTUAL_ENV": "/workspaces/acl2-mcp-bridge/.venv",
-        "PATH": "/workspaces/acl2-mcp-bridge/.venv/bin:${containerEnv:PATH}"
+        "PATH": "/workspaces/acl2-mcp-bridge/.venv/bin:${containerEnv:PATH}",
+        "ASDF_SOURCE_REGISTRY": "(:source-registry (:tree \"/workspaces/acl2-mcp-bridge/\") :inherit-configuration)",
+        "CL_SOURCE_REGISTRY": "/workspaces/acl2-mcp-bridge//:"
     },
     // Create venv if it doesn't exist, install packages
     "postCreateCommand": "[ -d /workspaces/acl2-mcp-bridge/.venv ] || (python3 -m venv /workspaces/acl2-mcp-bridge/.venv && /workspaces/acl2-mcp-bridge/.venv/bin/pip install --upgrade pip)",

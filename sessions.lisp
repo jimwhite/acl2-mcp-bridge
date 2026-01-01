@@ -3,7 +3,7 @@
 
 ;; Common Lisp Session Structure
 (defstruct cl-session
-  (id (uiop:random-string) :type string)
+  (id (string-downcase (princ-to-string (uuid:make-v4-uuid))) :type string)
   (package (find-package :cl-user))
   (created-at (local-time:now))
   (last-activity (local-time:now))

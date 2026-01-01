@@ -3,7 +3,7 @@
 
 ;; ACL2 Session Structure
 (defstruct acl2-session
-  (id (uiop:random-string) :type string)
+  (id (string-downcase (princ-to-string (uuid:make-v4-uuid))) :type string)
   (acl2-process nil)
   (input-stream nil)
   (output-stream nil)
