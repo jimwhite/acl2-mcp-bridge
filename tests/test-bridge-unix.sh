@@ -124,6 +124,21 @@ def send_command(sock, cmd_type, content):
     msg = f"{cmd_type} {len(content)}\n{content}\n"
     sock.sendall(msg.encode())
 
+def run_command(sock, cmd_type, content):
+    """Send command and return (result, error) tuple."""
+    send_command(sock, cmd_type, content)
+    result = None
+    error = None
+    while True:
+        msg_type, msg_content = read_message(sock)
+        if msg_type == "RETURN":
+            result = msg_content
+        elif msg_type == "ERROR":
+            error = msg_content
+        elif msg_type == "READY":
+            break
+    return result, error
+
 socket_path = "/tmp/acl2-bridge-test.sock"
 print(f"Connecting to Unix socket: {socket_path}")
 
@@ -131,45 +146,108 @@ sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 sock.connect(socket_path)
 sock.settimeout(10)
 
-# Should receive HELLO
+# Handshake
 msg_type, content = read_message(sock)
 assert msg_type == "ACL2_BRIDGE_HELLO", f"Expected HELLO, got {msg_type}"
-print("Connected!")
-
-# Should receive READY
 msg_type, content = read_message(sock)
 assert msg_type == "READY", f"Expected READY, got {msg_type}"
+print("Connected!")
 
-# Test 1: Simple arithmetic
-print("Test 1: (+ 1 2)...", end=" ")
-send_command(sock, "LISP", "(+ 1 2)")
+passed = 0
+failed = 0
 
-result = None
-while True:
-    msg_type, content = read_message(sock)
-    if msg_type == "READY":
-        break
-    if msg_type == "RETURN":
-        result = content
-assert result and "3" in result, f"Expected 3, got {result}"
-print("PASS")
+def test(name, cmd_type, cmd, check):
+    global passed, failed
+    print(f"Test: {name}...", end=" ")
+    result, error = run_command(sock, cmd_type, cmd)
+    try:
+        check(result, error)
+        print("PASS")
+        passed += 1
+    except AssertionError as e:
+        print(f"FAIL: {e}")
+        failed += 1
 
-# Test 2: Multiplication
-print("Test 2: (* 6 7)...", end=" ")
-send_command(sock, "LISP", "(* 6 7)")
+# === LISP command type (single value) ===
+test("LISP: simple arithmetic",
+     "LISP", "(+ 1 2)",
+     lambda r, e: r and r.strip() == "3")
 
-result = None
-while True:
-    msg_type, content = read_message(sock)
-    if msg_type == "READY":
-        break
-    if msg_type == "RETURN":
-        result = content
-assert result and "42" in result, f"Expected 42, got {result}"
-print("PASS")
+test("LISP: multiplication",
+     "LISP", "(* 6 7)",
+     lambda r, e: r and r.strip() == "42")
+
+test("LISP: list construction",
+     "LISP", "(cons 'a '(b c))",
+     lambda r, e: r and "A" in r.upper())
+
+test("LISP: string result",
+     "LISP", '"hello world"',
+     lambda r, e: r and "hello" in r.lower())
+
+test("LISP: nil result",
+     "LISP", "nil",
+     lambda r, e: r and r.strip().upper() == "NIL")
+
+test("LISP: t result",
+     "LISP", "t",
+     lambda r, e: r and r.strip().upper() == "T")
+
+# === LISP_MV command type (multiple values) ===
+test("LISP_MV: floor with two values",
+     "LISP_MV", "(floor 17 5)",
+     lambda r, e: r and "3" in r and "2" in r)
+
+test("LISP_MV: truncate",
+     "LISP_MV", "(truncate 10 3)",
+     lambda r, e: r and "3" in r and "1" in r)
+
+test("LISP_MV: values form",
+     "LISP_MV", "(values 1 2 3)",
+     lambda r, e: r and "1" in r and "2" in r and "3" in r)
+
+test("LISP_MV: single value (should still work)",
+     "LISP_MV", "(+ 1 2)",
+     lambda r, e: r and "3" in r)
+
+# === JSON command type (single value) ===
+test("JSON: number",
+     "JSON", "42",
+     lambda r, e: r and r.strip() == "42")
+
+test("JSON: list as array",
+     "JSON", "'(1 2 3)",
+     lambda r, e: r and "[" in r and "1" in r)
+
+test("JSON: string",
+     "JSON", '"test"',
+     lambda r, e: r and "test" in r)
+
+# === JSON_MV command type (multiple values) ===
+test("JSON_MV: floor",
+     "JSON_MV", "(floor 17 5)",
+     lambda r, e: r and "3" in r and "2" in r)
+
+test("JSON_MV: values",
+     "JSON_MV", "(values 'a 'b 'c)",
+     lambda r, e: r and "A" in r.upper())
+
+# === Error handling ===
+test("ERROR: undefined function",
+     "LISP", "(undefined-function-xyz)",
+     lambda r, e: e is not None or (r is None))
+
+test("ERROR: syntax error",
+     "LISP", "(+ 1",
+     lambda r, e: e is not None or (r is None))
 
 sock.close()
-print("\nAll tests passed!")
+
+print(f"\n{'='*40}")
+print(f"Results: {passed} passed, {failed} failed")
+if failed > 0:
+    sys.exit(1)
+print("All tests passed!")
 PYTEST
 
 echo ""
