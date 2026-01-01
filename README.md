@@ -220,10 +220,31 @@ acl2-mcp-bridge/
 ├── threading-utils.lisp    # Thread utilities
 └── tests/
     ├── startup-tests.lisp       # Unit tests (FiveAM)
-    ├── mcp-test.sh              # MCP integration tests
+    ├── mcp-client-tests.py      # MCP Python client tests (official SDK)
+    ├── run-mcp-client-tests.sh  # MCP test runner script
+    ├── mcp-test.sh              # MCP integration tests (curl)
     ├── test-bridge.sh           # Bridge protocol tests (unix|tcp)
     └── bridge-protocol-tests.py # Bridge protocol Python test suite
 ```
+
+## Development Notes
+
+### 40ants-mcp Tool Parameters
+
+When defining tools with optional parameters, use `&key` instead of `&optional`:
+
+```lisp
+;; CORRECT - &key works with MCP's named arguments
+(define-tool (my-tools query-package) (&key package-name)
+  (:param package-name string "Package to query")
+  ...)
+
+;; WRONG - &optional doesn't bind MCP named arguments  
+(define-tool (my-tools query-package) (&optional package-name)
+  ...)
+```
+
+MCP sends arguments as a JSON object with named keys (e.g., `{"package_name": "COMMON-LISP"}`). The openrpc-server framework converts `package-name` → `package_name` for the JSON schema, but only `&key` parameters correctly bind from the arguments hash-table.
 
 ## ACL2 Bridge Protocol
 
@@ -325,7 +346,17 @@ sbcl --eval '(asdf:load-system :acl2-mcp-bridge/tests)' \
      --quit
 ```
 
-### Integration Tests
+### MCP Client Tests (Python)
+
+Comprehensive tests using the official MCP Python SDK:
+
+```bash
+cd tests && ./run-mcp-client-tests.sh -v
+```
+
+Tests cover: tool discovery, eval_cl, define_function, get_package, reset_cl, query_cl_package, and error handling.
+
+### Integration Tests (curl)
 
 ```bash
 ./tests/mcp-test.sh

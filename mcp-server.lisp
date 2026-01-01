@@ -92,7 +92,7 @@ start fresh without restarting the server.")
         (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
         (list (make-instance 'text-content :text msg)))))
 
-(define-tool (acl2-mcp-tools query-cl-package) (&optional package-name)
+(define-tool (acl2-mcp-tools query-cl-package) (&key package-name)
   (:summary "Introspect a Common Lisp package")
   (:description "List symbols, functions, and variables in a package. Without arguments,
 introspects the current session package. Useful for exploring available definitions.")
