@@ -74,6 +74,172 @@ sbcl --eval '(ql:quickload :acl2-mcp-bridge)' --quit
 (acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
 ```
 
+HTTP transport details (matches 40ants-mcp defaults):
+- Endpoint: POST `http://127.0.0.1:8085/mcp` with JSON-RPC payloads.
+- Event stream: GET `http://127.0.0.1:8085/mcp` upgrades to SSE for notifications.
+- There is no `/openrpc.json` or root handler; other paths return 404.
+
+### Testing
+
+- Quicklisp style (recommended):
+
+```bash
+sbcl --eval '(ql:quickload :acl2-mcp-bridge/tests)' \
+  --eval '(acl2-mcp-bridge/tests:run-tests)' \
+  --quit
+```
+
+- Script style (no ASDF config needed if Quicklisp is installed in `~/quicklisp`):
+
+```bash
+sbcl --script tests/run-tests-script.lisp
+```
+
+### Smoke tests
+
+- Start MCP (stdio):
+
+```bash
+sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
+  --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio)' \
+  --eval '(loop (sleep 1))'
+```
+
+- Start MCP (HTTP):
+
+```bash
+sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
+  --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)' \
+  --eval '(loop (sleep 1))'
+```
+
+- Curl smoke (list sessions over HTTP):
+
+```bash
+curl -s -X POST http://127.0.0.1:8085/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"list_sessions","params":[]}'
+```
+
+Method names (snake_case, no prefix), as registered today (see server log dump):
+- CL tools: `eval_cl`, `load_file`, `define_function`, `list_sessions`, `start_session`, `stop_session`
+- ACL2 tools (stubs): `check_theorem`, `admit`, `verify_guards`, `query_event`, `list_sessions`, `start_session`, `stop_session`
+- Bridge tools: `acl2_to_cl`, `cl_to_acl2`, `cross_eval`
+
+Example (CL list sessions):
+
+```bash
+curl -s -X POST http://127.0.0.1:8085/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"list_sessions","params":[]}'
+```
+
+Claude Desktop (HTTP) example:
+
+```json
+{
+  "mcpServers": {
+    "acl2-bridge-http": {
+      "command": "sbcl",
+      "args": [
+        "--eval",
+        "(ql:quickload :acl2-mcp-bridge)",
+        "--eval",
+        "(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)",
+        "--eval",
+        "(loop (sleep 1))"
+      ],
+      "url": "http://127.0.0.1:8085/mcp"
+    }
+  }
+}
+```
+
+### VS Code / Cursor quickstart
+
+- **Stdio (preferred for local dev):** In the VS Code or Cursor terminal, run:
+
+```bash
+sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
+  --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio)' \
+  --eval '(loop (sleep 1))'
+```
+
+Point your MCP client (VS Code extension or Cursor MCP settings) at this command as a stdio server.
+
+- **HTTP:** Start the server, then configure your MCP client with `url: http://127.0.0.1:8085/mcp`:
+
+```bash
+sbcl --eval '(ql:quickload :acl2-mcp-bridge)' \
+  --eval '(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)' \
+  --eval '(loop (sleep 1))'
+```
+
+Smoke test HTTP with curl:
+
+```bash
+curl -s -X POST http://127.0.0.1:8085/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"list_sessions","params":[]}'
+```
+
+#### VS Code workspace settings (MCP extension)
+
+- HTTP (matches the bundled `acl2-mcp-bridge.code-workspace`):
+
+```jsonc
+"mcp": {
+  "servers": {
+    "acl2-mcp-bridge": {
+      "type": "http",
+      "command": "sbcl",
+      "args": [
+        "--noinform",
+        "--disable-debugger",
+        "--non-interactive",
+        "--eval",
+        "(ql:quickload :acl2-mcp-bridge)",
+        "--eval",
+        "(progn (acl2-mcp-bridge:start-server :protocol :mcp :transport :http :host \"0.0.0.0\" :port 8085) (loop (sleep 1)))"
+      ],
+      "env": {
+        "ASDF_SOURCE_REGISTRY": "(:source-registry (:tree \"/workspaces/acl2-mcp-bridge/\") :inherit-configuration)",
+        "CL_SOURCE_REGISTRY": "/workspaces/acl2-mcp-bridge//:"
+      },
+      "url": "http://127.0.0.1:8085/mcp"
+    }
+  }
+}
+```
+
+- Stdio variant (no URL, transport stdio):
+
+```jsonc
+"mcp": {
+  "servers": {
+    "acl2-mcp-bridge-stdio": {
+      "type": "stdio",
+      "command": "sbcl",
+      "args": [
+        "--noinform",
+        "--disable-debugger",
+        "--non-interactive",
+        "--eval",
+        "(ql:quickload :acl2-mcp-bridge)",
+        "--eval",
+        "(progn (acl2-mcp-bridge:start-server :protocol :mcp :transport :stdio) (loop (sleep 1)))"
+      ],
+      "env": {
+        "ASDF_SOURCE_REGISTRY": "(:source-registry (:tree \"/workspaces/acl2-mcp-bridge/\") :inherit-configuration)",
+        "CL_SOURCE_REGISTRY": "/workspaces/acl2-mcp-bridge//:"
+      }
+    }
+  }
+}
+```
+
+Claude Desktop (stdio) example remains the same as above; omit `url` and use `:transport :stdio`.
+
 ### Shutdown behavior
 
 - Bridge: `(acl2-mcp-bridge:stop-server :protocol :bridge)` closes the socket listener.

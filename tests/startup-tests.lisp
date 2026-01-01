@@ -108,3 +108,19 @@
       (is (get-acl2-session id))
       (is (stop-acl2-session id))
       (is (null (get-acl2-session id))))))
+
+(test start-mcp-server-builds-apis
+  ;; Ensure APIs are registered and start-loop is invoked.
+  (let ((exposed '())
+        (loop-called nil))
+    (with-redefs ((jsonrpc:make-server (lambda () :server))
+                  (jsonrpc:expose (lambda (srv name thunk)
+                                    (declare (ignore srv thunk))
+                                    (push name exposed)))
+                  (start-loop (lambda (transport handler)
+                                (setf loop-called (list transport handler)))))
+      (let ((result (acl2-mcp-bridge::start-mcp-server :transport :http :host "0.0.0.0" :port 4242)))
+        (is (not (null loop-called)))
+        (is (typep result '40ants-mcp/http-transport:http-transport))
+        (is (member "list_sessions" exposed :test #'string=))
+        (is (member "eval_cl" exposed :test #'string=))))))
