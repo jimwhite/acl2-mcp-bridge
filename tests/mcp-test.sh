@@ -152,8 +152,15 @@ EVAL_CL_TESTS='[
 ]'
 
 LIST_SESSIONS_TESTS='[
-  {"description": "List sessions - no args", "arguments": {}, "expect_success": true},
-  {"description": "List sessions - empty object", "arguments": {}, "expect_success": true}
+  {"description": "List sessions - no args", "arguments": {}, "expect_success": true}
+]'
+
+START_SESSION_TESTS='[
+  {"description": "Start new session", "arguments": {}, "expect_success": true}
+]'
+
+STOP_SESSION_TESTS='[
+  {"description": "Stop non-existent session", "arguments": {"session_id": "nonexistent"}, "expect_success": true}
 ]'
 
 # Process each tool
@@ -176,6 +183,14 @@ for i in $(seq 0 $((TOOL_COUNT - 1))); do
       ;;
     list_sessions)
       TEST_CASES="$LIST_SESSIONS_TESTS"
+      echo "  Using predefined test cases..."
+      ;;
+    start_session)
+      TEST_CASES="$START_SESSION_TESTS"
+      echo "  Using predefined test cases..."
+      ;;
+    stop_session)
+      TEST_CASES="$STOP_SESSION_TESTS"
       echo "  Using predefined test cases..."
       ;;
     *)
@@ -233,6 +248,83 @@ Include: 1 happy path, 1 edge case (empty string), 1 with special chars. JSON on
   done
   echo ""
 done
+
+# ═══════════════════════════════════════════════════════════════
+# Session Persistence Integration Tests
+# ═══════════════════════════════════════════════════════════════
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Session Persistence Integration Tests"
+echo ""
+
+# Test 1: Start session, define var, read back
+echo -n "  • Session workflow (defvar, read, incf, read)... "
+
+# Start a new session
+SESSION=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 10 | jq -r '.result.content[0].text')
+
+if [ -z "$SESSION" ] || [ "$SESSION" = "null" ]; then
+  echo "FAIL (couldn't start session)"
+  record_fail
+else
+  # Define a variable
+  R1=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"(defvar *test-var* 100)\",\"session_id\":\"$SESSION\"}}" 11 | jq -r '.result.content[0].text')
+  
+  # Read it back  
+  R2=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"*test-var*\",\"session_id\":\"$SESSION\"}}" 12 | jq -r '.result.content[0].text')
+  
+  # Increment it
+  R3=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"(incf *test-var*)\",\"session_id\":\"$SESSION\"}}" 13 | jq -r '.result.content[0].text')
+  
+  # Read again
+  R4=$(mcp_call "tools/call" "{\"name\":\"eval_cl\",\"arguments\":{\"code\":\"*test-var*\",\"session_id\":\"$SESSION\"}}" 14 | jq -r '.result.content[0].text')
+  
+  # Verify: R2 should be 100, R3 should be 101, R4 should be 101
+  if [ "$R2" = "100" ] && [ "$R3" = "101" ] && [ "$R4" = "101" ]; then
+    echo "PASS"
+    record_pass
+  else
+    echo "FAIL"
+    echo "    Expected: 100, 101, 101"
+    echo "    Got: $R2, $R3, $R4"
+    record_fail
+  fi
+  
+  # Clean up - stop the session
+  mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION\"}}" 15 > /dev/null
+fi
+
+# Test 2: Session lifecycle (start, use, stop, verify stopped)
+echo -n "  • Session lifecycle (start, stop, verify)... "
+
+SESSION_NEW=$(mcp_call "tools/call" '{"name":"start_session","arguments":{}}' 20 | jq -r '.result.content[0].text')
+
+# Verify session exists - list should contain our session ID
+LIST_BEFORE=$(mcp_call "tools/call" '{"name":"list_sessions","arguments":{}}' 21 | jq -r '.result.content[0].text')
+
+# Stop the session
+STOP_RESULT=$(mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_NEW\"}}" 22 | jq -r '.result.content[0].text')
+
+# Try to stop again - should fail (session not found)
+STOP_AGAIN=$(mcp_call "tools/call" "{\"name\":\"stop_session\",\"arguments\":{\"session_id\":\"$SESSION_NEW\"}}" 23 | jq -r '.result.content[0].text')
+
+# Check results
+if echo "$LIST_BEFORE" | grep -q "$SESSION_NEW" && \
+   echo "$STOP_RESULT" | grep -q "Stopped" && \
+   echo "$STOP_AGAIN" | grep -q "not found"; then
+  echo "PASS"
+  record_pass
+else
+  echo "FAIL"
+  echo "    Session was: $SESSION_NEW"
+  echo "    Stop result: $STOP_RESULT"
+  echo "    Stop again: $STOP_AGAIN"
+  record_fail
+fi
+
+# Note: CL sessions share global special variables (defvar/defparameter) 
+# This is expected - sessions manage packages and history, not variable isolation
+
+echo ""
 
 read PASSED FAILED < "$RESULTS_FILE"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

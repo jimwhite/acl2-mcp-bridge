@@ -3,22 +3,33 @@
 ;; Define a single unified API with only the currently implemented CL tools
 (define-api (acl2-mcp-tools :title "ACL2 MCP Bridge Tools"))
 
-(define-tool (acl2-mcp-tools eval-cl) (code &optional package-name)
-  (:summary "Evaluate Common Lisp code")
+(define-tool (acl2-mcp-tools eval-cl) (code &optional session-id)
+  (:summary "Evaluate Common Lisp code in a persistent session")
   (:param code string "Lisp code to evaluate")
-  (:param package-name string "Package context (default CL-USER)")
+  (:param session-id string "Session identifier (default: 'default')")
   (:result (soft-list-of text-content))
-  (handler-case
-      (let* ((pkg (or (and package-name (find-package (string-upcase package-name))) :cl-user))
-             (*package* (find-package pkg)))
-        (let ((results (multiple-value-list (eval (read-from-string code)))))
-          (list (make-instance 'text-content 
-                              :text (if (= 1 (length results))
-                                        (format nil "~S" (first results))
-                                        (format nil "~{~S~^~%~}" results))))))
-    (error (e)
-      (list (make-instance 'text-content 
-                          :text (format nil "Error: ~A" e))))))
+  (multiple-value-bind (results error-p error-msg)
+      (cl-eval code :session-id (or session-id "default"))
+    (if error-p
+        (list (make-instance 'text-content :text (format nil "Error: ~A" error-msg)))
+        (list (make-instance 'text-content 
+                            :text (if (= 1 (length results))
+                                      (format nil "~S" (first results))
+                                      (format nil "~{~S~^~%~}" results)))))))
+
+(define-tool (acl2-mcp-tools start-session) ()
+  (:summary "Start a new Common Lisp session and return its id")
+  (:result (soft-list-of text-content))
+  (let ((id (start-cl-session)))
+    (list (make-instance 'text-content :text id))))
+
+(define-tool (acl2-mcp-tools stop-session) (session-id)
+  (:summary "Stop and remove a Common Lisp session")
+  (:param session-id string "Session identifier to stop")
+  (:result (soft-list-of text-content))
+  (if (stop-cl-session session-id)
+      (list (make-instance 'text-content :text (format nil "Stopped ~A" session-id)))
+      (list (make-instance 'text-content :text (format nil "Session ~A not found" session-id)))))
 
 (define-tool (acl2-mcp-tools list-sessions) ()
   (:summary "List all active sessions")
