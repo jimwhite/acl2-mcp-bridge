@@ -1,51 +1,43 @@
 (in-package #:acl2-mcp-bridge)
 
+;; Define a single unified API with only the currently implemented CL tools
+(define-api (acl2-mcp-tools :title "ACL2 MCP Bridge Tools"))
+
+(define-tool (acl2-mcp-tools eval-cl) (code &optional package-name)
+  (:summary "Evaluate Common Lisp code")
+  (:param code string "Lisp code to evaluate")
+  (:param package-name string "Package context (default CL-USER)")
+  (:result (soft-list-of text-content))
+  (handler-case
+      (let* ((pkg (or (and package-name (find-package (string-upcase package-name))) :cl-user))
+             (*package* (find-package pkg)))
+        (multiple-value-bind (result)
+            (eval (read-from-string code))
+          (list (make-instance 'text-content 
+                              :text (format nil "~S" result)))))
+    (error (e)
+      (list (make-instance 'text-content 
+                          :text (format nil "Error: ~A" e))))))
+
+(define-tool (acl2-mcp-tools list-sessions) ()
+  (:summary "List all active sessions")
+  (:result (soft-list-of text-content))
+  (let ((acl2-sessions (list-acl2-sessions))
+        (cl-sessions (list-cl-sessions)))
+    (list (make-instance 'text-content 
+                        :text (format nil "ACL2 Sessions: ~S~%CL Sessions: ~S" 
+                                     acl2-sessions cl-sessions)))))
+
 
 (defun start-mcp-server (&key (transport :stdio) host port)
-  "Start the MCP server and return the transport instance.
+  "Start the MCP server using 40ants-mcp's start-server.
 
-HOST is accepted for interface compatibility but ignored. PORT is forwarded for
-HTTP transport. We register tool methods manually to avoid 40ants-mcp's missing
-aggregation across API collections."
+This properly exposes tools via MCP's tools/list and tools/call methods."
   (declare (ignore host))
-  (let* ((apis (list acl2-api cl-api bridge-api))
-         (rpc-server (make-server)))
-    ;; Register all methods from each API into the JSON-RPC server.
-    (dolist (api apis)
-      (maphash (lambda (name method-info)
-                 (expose rpc-server name (method-thunk method-info)))
-               (openrpc-server:api-methods api)))
-
-    (log:info "MCP API methods"
-              (mapcar (lambda (api)
-                        (let ((names '()))
-                          (maphash (lambda (k v) (declare (ignore v)) (push k names))
-                                   (openrpc-server:api-methods api))
-                          names))
-                      apis))
-
-    (let ((transport-instance (ecase transport
-                                (:stdio (make-instance 'stdio-transport))
-                                (:http (make-instance 'http-transport :port port)))))
-      (start-loop transport-instance
-                  (lambda (message)
-                    (cond
-                      ;; Empty body -> JSON-RPC parse error
-                      ((or (null message)
-                           (and (stringp message) (string= message "")))
-                       (log:error "Empty MCP message received; returning parse error")
-                       "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32700,\"message\":\"Parse error (empty body)\"},\"id\":null}")
-                      (t
-                       (let ((response
-                               (handler-case
-                                   (handle-message rpc-server message)
-                                 (error (e)
-                                   (log:error "Unhandled MCP handler error: ~A" e)
-                                   (format nil
-                                           "{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"error\\\":{\\\"code\\\":-32000,\\\"message\\\":\\\"~A\\\"},\\\"id\\\":null}"
-                                           e)))))
-                         (or response
-                             "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32700,\"message\":\"Parse error (empty body)\"},\"id\":null}"))))))
-      transport-instance)))
+  (log:info "Starting MCP server with transport ~A" transport)
+  (40ants-mcp/server/definition:start-server 
+   acl2-mcp-tools
+   :transport transport
+   :port port))
 
 ;; Note: 40ants-mcp has no public stop API; stopping requires terminating the process.
