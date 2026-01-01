@@ -36,6 +36,7 @@
                 :components ((:file "package")
                              (:file "startup-tests")
                              (:file "message-format-tests")
+                             (:file "readme-basic-server-tests")
                              (:file "run-tests"))))
   :perform (test-op (op c)
              (uiop:symbol-call '#:acl2-mcp-bridge/tests '#:run-tests)))

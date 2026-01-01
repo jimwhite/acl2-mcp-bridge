@@ -2,4 +2,5 @@
 
 (defun run-tests ()
   (fiveam:run! 'startup-suite)
-  (fiveam:run! 'message-format-suite))
+  (fiveam:run! 'message-format-suite)
+  (fiveam:run! 'readme-basic-suite))
