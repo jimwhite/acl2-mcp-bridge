@@ -237,8 +237,6 @@
 ;;; ============================================================================
 
 (defun worker-thread (stream)
-  (format t "Starting worker thread~%")
-  (force-output)
   (handler-case
       (let ((acl2::*default-hs* (acl2::hl-hspace-init))
             (*package* (find-package "ACL2"))
@@ -312,7 +310,7 @@
                (bridge-debug "Main thread is doing its work.~%")
                (let* ((*standard-output* ,saved-stdout)
                       (*trace-output*    ,saved-stdout)
-                      (*bridge-debug*-io*        ,saved-stdout)
+                      (*debug-io*        ,saved-stdout)
                       (*error-output*    ,saved-stdout)
                       (*standard-co*     ,saved-stdco))
                  (with-acl2-channels-bound ,saved-stdco
