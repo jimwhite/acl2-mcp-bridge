@@ -64,10 +64,13 @@ The devcontainer includes:
 - **acl2_certify_book** - Certify a book
 - **acl2_undo** - Undo recent events
 
-### 3. Bridge & Analysis Tools (experimental)
-- **bridge_acl2_to_cl** - Evaluate ACL2, store result in CL
-- **bridge_cl_to_acl2** - Evaluate CL, format for ACL2
-- **acl2_cl_eval** - Cross-language evaluation
+### 3. Bridge-Compatible Tools
+These tools provide ACL2 Bridge protocol features via MCP:
+- **eval_with_output** - Evaluate code and capture printed output (CW, FMT)
+- **eval_multiple_values** - Return all values, not just the first
+- **eval_main_thread** - Execute in main thread (for memoization/hons safety)
+
+### 4. Analysis Tools (experimental)
 - **get_dependencies** - Analyze theorem dependencies
 - **extract_lemmas** - Get lemmas used in a proof
 - **suggest_proofs** - Proof strategy suggestions
@@ -177,13 +180,20 @@ Each session gets:
 | `acl2_certify_book` | Certify an ACL2 book |
 | `acl2_undo` | Undo recent events |
 
-### Bridge & Analysis Tools (experimental)
+### Bridge-Compatible Tools
+
+These expose ACL2 Bridge protocol capabilities via MCP:
 
 | Tool | Description |
 |------|-------------|
-| `bridge_acl2_to_cl` | Evaluate ACL2, store result in CL `*acl2-result*` |
-| `bridge_cl_to_acl2` | Evaluate CL, format result for ACL2 |
-| `acl2_cl_eval` | Cross-language evaluation (both environments) |
+| `eval_with_output` | Evaluate code and capture all printed output (CW, FMT, FORMAT) |
+| `eval_multiple_values` | Return all values from a form (like Bridge's LISP_MV/JSON_MV) |
+| `eval_main_thread` | Execute in main thread for memoization/hons safety |
+
+### Analysis Tools (experimental)
+
+| Tool | Description |
+|------|-------------|
 | `get_dependencies` | Analyze theorem/function dependencies |
 | `extract_lemmas` | Get supporting lemmas used in a proof |
 | `suggest_proofs` | Proof strategy suggestions |
