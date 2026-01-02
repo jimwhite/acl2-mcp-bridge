@@ -108,10 +108,11 @@ def main():
         log("Connected, bridging stdio <-> socket")
         conn.setblocking(False)
         stdin_fd = sys.stdin.buffer.fileno()
+        stderr_fd = proc.stderr.fileno()
         
         # Transparent bridge: stdin -> socket, socket -> stdout
         while True:
-            readable, _, _ = select.select([stdin_fd, conn], [], [], 1.0)
+            readable, _, _ = select.select([stdin_fd, conn, stderr_fd], [], [], 1.0)
             
             for fd in readable:
                 if fd == stdin_fd:
@@ -120,6 +121,11 @@ def main():
                         log("EOF on stdin")
                         return
                     conn.sendall(data)
+                elif fd == stderr_fd:
+                    line = proc.stderr.readline()
+                    if line:
+                        sys.stderr.buffer.write(line)
+                        sys.stderr.buffer.flush()
                 elif fd == conn:
                     try:
                         data = conn.recv(4096)

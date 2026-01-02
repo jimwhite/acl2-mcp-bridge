@@ -89,12 +89,18 @@
 
 (defun ccl-accept-connection (server-socket)
   "Accept a connection and return a bidirectional stream."
+  (format *error-output* "~&[ccl-accept-connection] called with ~A~%" (type-of server-socket))
+  (force-output *error-output*)
   (etypecase server-socket
     (usocket:stream-server-usocket
      (let ((client (usocket:socket-accept server-socket)))
        (usocket:socket-stream client)))
     (sb-bsd-sockets:local-socket
+     (format *error-output* "~&[ccl-accept-connection] calling socket-accept...~%")
+     (force-output *error-output*)
      (let ((client-socket (sb-bsd-sockets:socket-accept server-socket)))
+       (format *error-output* "~&[ccl-accept-connection] got client socket~%")
+       (force-output *error-output*)
        (sb-bsd-sockets:socket-make-stream client-socket
                                           :input t :output t
                                           :element-type 'character

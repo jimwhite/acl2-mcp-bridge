@@ -302,9 +302,13 @@ Inherits socket-path from session-http-transport."))
 
 (defun read-jsonrpc-message (stream)
   "Read a Content-Length framed JSON-RPC message from stream."
+  (format *error-output* "~&[read-jsonrpc] starting read-line...~%")
+  (force-output *error-output*)
   (let ((content-length nil))
     ;; Read headers
     (loop for line = (read-line stream nil nil)
+          do (format *error-output* "~&[read-jsonrpc] line: ~S~%" line)
+             (force-output *error-output*)
           while (and line (> (length line) 0) (not (string= line (string #\Return))))
           do (let ((trimmed (string-trim '(#\Return #\Newline) line)))
                (when (and (> (length trimmed) 0)
@@ -312,6 +316,8 @@ Inherits socket-path from session-http-transport."))
                  (setf content-length 
                        (parse-integer (subseq trimmed (1+ (position #\: trimmed))) 
                                       :junk-allowed t)))))
+    (format *error-output* "~&[read-jsonrpc] content-length: ~A~%" content-length)
+    (force-output *error-output*)
     (when content-length
       (let ((buf (make-string content-length)))
         (read-sequence buf stream)
@@ -325,28 +331,37 @@ Inherits socket-path from session-http-transport."))
 
 (defun handle-unix-jsonrpc-connection (client-stream message-handler)
   "Handle a JSON-RPC connection on Unix socket (same protocol as stdio)."
-  (log:info "handle-unix-jsonrpc-connection starting")
+  (format *error-output* "~&[handle-connection] starting~%")
+  (force-output *error-output*)
   (let ((*current-session* (get-or-create-session "unix-socket")))
     (loop
       (handler-case
           (progn
-            (log:info "Waiting for message...")
+            (format *error-output* "~&[handle-connection] reading message...~%")
+            (force-output *error-output*)
             (let ((message (read-jsonrpc-message client-stream)))
-              (log:info "Got message: ~A" (if message (subseq message 0 (min 100 (length message))) "NIL"))
+              (format *error-output* "~&[handle-connection] got: ~A~%" 
+                      (if message (subseq message 0 (min 80 (length message))) "NIL"))
+              (force-output *error-output*)
               (unless message
                 (return))  ; EOF
               (let ((response (funcall message-handler message)))
-                (log:info "Got response: ~A" (if response (subseq response 0 (min 100 (length response))) "NIL"))
+                (format *error-output* "~&[handle-connection] response: ~A~%"
+                        (if response (subseq response 0 (min 80 (length response))) "NIL"))
+                (force-output *error-output*)
                 (when response
                   (write-jsonrpc-message client-stream response)))))
         (end-of-file () (return))
         (error (e)
-          (log:error "Error handling JSON-RPC: ~A" e)
+          (format *error-output* "~&[handle-connection] ERROR: ~A~%" e)
+          (force-output *error-output*)
           (return))))))
 
 (defun start-unix-socket-jsonrpc-server (socket-path message-handler)
-  "Start JSON-RPC server on Unix domain socket (same protocol as stdio)."
-  (log:info "Starting MCP JSON-RPC server on Unix socket: ~A" socket-path)
+  "Start JSON-RPC server on Unix domain socket (same protocol as stdio).
+   Blocks and handles connections directly - no threading needed."
+  (format *error-output* "~&[start-server] Starting on ~A~%" socket-path)
+  (force-output *error-output*)
   
   ;; Remove existing socket file
   (when (probe-file socket-path)
@@ -354,19 +369,17 @@ Inherits socket-path from session-http-transport."))
   
   ;; Create socket
   (let ((server-socket (bridge::ccl-make-socket-unix socket-path)))
-    (log:info "Unix socket ready: ~A" socket-path)
+    (format *error-output* "~&[start-server] Socket ready, accepting...~%")
+    (force-output *error-output*)
     
-    ;; Accept connections (single client for stdio wrapper)
-    (bt:make-thread
-     (lambda ()
-       (log:info "Server thread starting, about to accept...")
-       (unwind-protect
-           (let ((client-stream (bridge::ccl-accept-connection server-socket)))
-             (log:info "Client connected")
-             (unwind-protect
-                 (handle-unix-jsonrpc-connection client-stream message-handler)
-               (close client-stream)))
-         ;; Cleanup
-         (ignore-errors (sb-bsd-sockets:socket-close server-socket))
-         (ignore-errors (delete-file socket-path))))
-     :name "MCP Unix Socket JSON-RPC Server")))
+    ;; Accept and handle connection directly (single client for stdio wrapper)
+    (unwind-protect
+        (let ((client-stream (bridge::ccl-accept-connection server-socket)))
+          (format *error-output* "~&[start-server] Client connected!~%")
+          (force-output *error-output*)
+          (unwind-protect
+              (handle-unix-jsonrpc-connection client-stream message-handler)
+            (close client-stream)))
+      ;; Cleanup
+      (ignore-errors (sb-bsd-sockets:socket-close server-socket))
+      (ignore-errors (delete-file socket-path)))))
