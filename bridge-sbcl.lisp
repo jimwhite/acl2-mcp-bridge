@@ -159,8 +159,8 @@
 
 (defvar bridge-default-port 55433)
 
-;; Special variable used for ACL2 channel binding
-(defvar *standard-co* nil)
+;; NOTE: *standard-co* is an ACL2 variable that must be imported from ACL2,
+;; not redefined. We use acl2::*standard-co* directly.
 
 (defvar *bridge-debug* nil)
 
@@ -252,7 +252,7 @@
                  (*trace-output*    ,stream)
                  (*debug-io*        ,stream)
                  (*error-output*    ,stream)
-                 (*standard-co*     ,channel))
+                 (acl2::*standard-co*     ,channel))
              (with-acl2-channels-bound ,channel . ,forms))
          (setf (get ,channel acl2::*open-output-channel-key*) nil)
          (setf (get ,channel acl2::*open-output-channel-type-key*) nil)))))
@@ -337,7 +337,7 @@
             (,finished     nil)
             (,errval       nil)
             (,saved-stdout *standard-output*)
-            (,saved-stdco  *standard-co*)
+            (,saved-stdco  acl2::*standard-co*)
             (,work
              (lambda ()
                (bridge-debug "Main thread is doing its work.~%")
@@ -345,7 +345,7 @@
                       (*trace-output*    ,saved-stdout)
                       (*debug-io*        ,saved-stdout)
                       (*error-output*    ,saved-stdout)
-                      (*standard-co*     ,saved-stdco))
+                      (acl2::*standard-co*     ,saved-stdco))
                  (with-acl2-channels-bound ,saved-stdco
                    (block try-to-run-it
                      (unwind-protect

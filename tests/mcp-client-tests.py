@@ -77,16 +77,24 @@ class TestSuite:
 class MCPClientTester:
     """Test harness for MCP server using official SDK"""
     
-    def __init__(self, transport: str = "http", url: str = None, verbose: bool = False, stdio_command: str = None):
+    def __init__(self, transport: str = "http", url: str = None, verbose: bool = False, 
+                 stdio_command: str = None, pattern: str = "*"):
         self.transport = transport
         self.url = url or "http://localhost:8080/mcp"
         self.verbose = verbose
         self.stdio_command = stdio_command or f"mcp-proxy-tool -u {self.url}"
+        self.pattern = pattern
         self.suite = TestSuite()
         
     def log(self, msg: str):
         if self.verbose:
             print(f"  [DEBUG] {msg}")
+    
+    def should_run_test(self, test_name: str) -> bool:
+        """Check if test matches the pattern filter"""
+        if self.pattern == "*":
+            return True
+        return fnmatch.fnmatch(test_name.lower(), self.pattern.lower())
             
     async def run_all_tests(self):
         """Run all test categories"""
@@ -145,27 +153,40 @@ class MCPClientTester:
         result = await session.initialize()
         self.log(f"Server: {result.serverInfo.name} v{result.serverInfo.version}")
         
-        # Run test categories
-        await self.test_tool_discovery(session)
-        await self.test_eval_cl_tool(session)
-        await self.test_define_function_tool(session)
-        await self.test_get_package_tool(session)
-        await self.test_reset_cl_tool(session)
-        await self.test_query_cl_package_tool(session)
-        await self.test_error_handling(session)
+        # Define all test categories with their names
+        test_categories = [
+            ("tool_discovery", self.test_tool_discovery),
+            ("eval_cl", self.test_eval_cl_tool),
+            ("define_function", self.test_define_function_tool),
+            ("get_package", self.test_get_package_tool),
+            ("reset_cl", self.test_reset_cl_tool),
+            ("query_cl_package", self.test_query_cl_package_tool),
+            ("error_handling", self.test_error_handling),
+            # ACL2 tool tests
+            ("acl2_evaluate", self.test_acl2_evaluate_tool),
+            ("acl2_admit", self.test_acl2_admit_tool),
+            ("acl2_prove", self.test_acl2_prove_tool),
+            ("acl2_check_provable", self.test_acl2_check_provable_tool),
+            ("acl2_query_event", self.test_acl2_query_event_tool),
+            ("acl2_include_book", self.test_acl2_include_book_tool),
+            # Bridge-compatible tool tests
+            ("eval_with_output", self.test_eval_with_output_tool),
+            ("eval_multiple_values", self.test_eval_multiple_values_tool),
+            ("eval_main_thread", self.test_eval_main_thread_tool),
+        ]
         
-        # ACL2 tool tests
-        await self.test_acl2_evaluate_tool(session)
-        await self.test_acl2_admit_tool(session)
-        await self.test_acl2_prove_tool(session)
-        await self.test_acl2_check_provable_tool(session)
-        await self.test_acl2_query_event_tool(session)
-        await self.test_acl2_include_book_tool(session)
+        # Run matching tests
+        matched_count = 0
+        for name, test_func in test_categories:
+            if self.should_run_test(name):
+                self.log(f"Running test: {name}")
+                matched_count += 1
+                await test_func(session)
+            else:
+                self.log(f"Skipping {name} (pattern: {self.pattern})")
         
-        # Bridge-compatible tool tests
-        await self.test_eval_with_output_tool(session)
-        await self.test_eval_multiple_values_tool(session)
-        await self.test_eval_main_thread_tool(session)
+        if matched_count == 0:
+            print(f"WARNING: No tests matched pattern '{self.pattern}'")
         
     async def test_tool_discovery(self, session: ClientSession):
         """Test that we can discover available tools"""
@@ -825,9 +846,11 @@ async def main():
                         help="Enable verbose output")
     parser.add_argument("--stdio-command", 
                         help="Command for stdio transport (default: mcp-proxy-tool -u <url>)")
+    parser.add_argument("--pattern", default="*",
+                        help="Run only tests matching pattern (glob, default: *)")
     args = parser.parse_args()
     
-    tester = MCPClientTester(args.transport, args.url, args.verbose, args.stdio_command)
+    tester = MCPClientTester(args.transport, args.url, args.verbose, args.stdio_command, args.pattern)
     success = await tester.run_all_tests()
     
     sys.exit(0 if success else 1)

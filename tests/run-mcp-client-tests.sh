@@ -14,6 +14,8 @@ URL="http://localhost:$PORT/mcp"
 TIMEOUT=60
 VERBOSE=""
 TRANSPORT="http"
+PATTERN="*"
+KEEP_LOG=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -31,13 +33,23 @@ while [[ $# -gt 0 ]]; do
             TRANSPORT="$2"
             shift 2
             ;;
+        -k|--keep-log)
+            KEEP_LOG=true
+            shift
+            ;;
+        --pattern)
+            PATTERN="$2"
+            shift 2
+            ;;
         -h|--help)
-            echo "Usage: $0 [-v|--verbose] [-p|--port PORT] [-t|--transport http|stdio]"
+            echo "Usage: $0 [-v|--verbose] [-p|--port PORT] [-t|--transport http|stdio] [--pattern PATTERN] [-k|--keep-log]"
             echo ""
             echo "Options:"
             echo "  -v, --verbose          Enable verbose output"
             echo "  -p, --port PORT        Server port (default: 8080)"
             echo "  -t, --transport TYPE   Transport: 'http' or 'stdio' (default: http)"
+            echo "  --pattern PATTERN      Run only tests matching pattern (glob, default: *)"
+            echo "  -k, --keep-log         Keep server log file after test run"
             echo ""
             echo "The stdio transport uses mcp-proxy-tool to proxy HTTP to stdio."
             exit 0
@@ -54,6 +66,7 @@ echo "MCP Client Test Suite"
 echo "=============================================="
 echo "Transport:  $TRANSPORT"
 echo "Server URL: $URL"
+echo "Pattern:    $PATTERN"
 echo "Project:    $PROJECT_DIR"
 echo ""
 
@@ -65,46 +78,19 @@ cleanup() {
         kill "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    rm -f /tmp/mcp-test-server.lisp /tmp/mcp-test-server.log
+    if [[ "$KEEP_LOG" == "true" ]]; then
+        echo "Server log kept at: /tmp/mcp-test-server.log"
+    else
+        rm -f /tmp/mcp-test-server.log
+    fi
 }
 trap cleanup EXIT
 
-# Create server startup script
-cat > /tmp/mcp-test-server.lisp << 'ENDOFSCRIPT'
-;; MCP Test Server Startup Script
-;; Drop to raw Lisp first
-:q
-
-;; Disable debugger for non-interactive use
-(sb-ext:disable-debugger)
-
-;; Load quicklisp for dependencies
-(load "~/quicklisp/setup.lisp")
-
-;; Add project paths to ASDF  
-(push #p"/workspaces/acl2-mcp-bridge/" asdf:*central-registry*)
-(push #p"/workspaces/acl2-mcp-bridge/vendor/40ants-mcp/" asdf:*central-registry*)
-
-;; Load the system
-(asdf:load-system :acl2-mcp-bridge)
-(format t "~%System loaded successfully~%")
-
-;; Start the MCP HTTP server (protocol :mcp, not :bridge)
-(funcall (find-symbol "START-SERVER" (find-package "ACL2-MCP-BRIDGE")) 
-         :protocol :mcp :port 8080)
-(format t "~%MCP Server started on port 8080~%")
-(format t "~%Server ready for connections~%")
-(force-output)
-
-;; Keep running - the HTTP server runs in threads  
-(loop (sleep 3600))
-ENDOFSCRIPT
-
 echo "Starting MCP server..."
 
-# Start ACL2 and feed it the script (which drops to raw Lisp with :q)
+# Start ACL2 and feed it the startup script (which drops to raw Lisp with :q)
 echo "Using ACL2..."
-acl2 < /tmp/mcp-test-server.lisp > /tmp/mcp-test-server.log 2>&1 &
+acl2 < "$SCRIPT_DIR/start-test-server.lisp" > /tmp/mcp-test-server.log 2>&1 &
 SERVER_PID=$!
 
 echo "Server PID: $SERVER_PID"
@@ -158,9 +144,9 @@ if [[ "$TRANSPORT" == "stdio" ]]; then
     
     STDIO_CMD="mcp-proxy-tool -u $URL"
     echo "Using mcp-proxy-tool for stdio transport"
-    "$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --transport stdio --stdio-command "$STDIO_CMD" $VERBOSE
+    "$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --transport stdio --stdio-command "$STDIO_CMD" --pattern "$PATTERN" $VERBOSE
 else
-    "$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --url "$URL" $VERBOSE
+    "$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --url "$URL" --pattern "$PATTERN" $VERBOSE
 fi
 TEST_EXIT=$?
 

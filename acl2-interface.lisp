@@ -31,7 +31,9 @@
 
    Returns (values result error-p error-message)"
   (handler-case
-      (let* ((form (read-from-string form-string))
+      (let* (;; CRITICAL: Read form in ACL2 package so symbols resolve correctly
+             (form (let ((*package* (find-package "ACL2")))
+                     (read-from-string form-string)))
              (session (and session-id (get-session session-id)))
              (hs (if session 
                      (cl-session-hons-space session)
