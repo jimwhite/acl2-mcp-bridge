@@ -3,13 +3,14 @@
 MCP Client Tests for ACL2-MCP-Bridge
 
 Uses the official MCP Python SDK to test the ACL2 MCP server.
-Supports Streamable HTTP transport.
+Supports Streamable HTTP and stdio transports.
 
 Usage:
-    python mcp-client-tests.py [--url URL] [--verbose]
+    python mcp-client-tests.py [--transport http|stdio] [--url URL] [--verbose]
     
 Options:
-    --url URL      MCP server URL (default: http://localhost:8080/mcp)
+    --transport    Transport type: 'http' or 'stdio' (default: http)
+    --url URL      MCP server URL for HTTP transport (default: http://localhost:8080/mcp)
     --verbose      Enable verbose output
 """
 
@@ -17,12 +18,14 @@ import asyncio
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
 from dataclasses import dataclass, field
 
 # MCP SDK imports
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from mcp.client.stdio import stdio_client, StdioServerParameters
 
 
 @dataclass
@@ -73,8 +76,9 @@ class TestSuite:
 class MCPClientTester:
     """Test harness for MCP server using official SDK"""
     
-    def __init__(self, url: str, verbose: bool = False):
-        self.url = url
+    def __init__(self, transport: str = "http", url: str = None, verbose: bool = False):
+        self.transport = transport
+        self.url = url or "http://localhost:8080/mcp"
         self.verbose = verbose
         self.suite = TestSuite()
         
@@ -84,26 +88,18 @@ class MCPClientTester:
             
     async def run_all_tests(self):
         """Run all test categories"""
-        print(f"\nMCP Client Tests for {self.url}")
+        if self.transport == "http":
+            print(f"\nMCP Client Tests for {self.url}")
+        else:
+            print(f"\nMCP Client Tests via stdio transport")
         print("=" * 60)
         
         try:
-            async with streamable_http_client(self.url) as (read, write, _):
-                async with ClientSession(read, write) as session:
-                    # Initialize the connection
-                    self.log("Initializing session...")
-                    result = await session.initialize()
-                    self.log(f"Server: {result.serverInfo.name} v{result.serverInfo.version}")
-                    
-                    # Run test categories
-                    await self.test_tool_discovery(session)
-                    await self.test_eval_cl_tool(session)
-                    await self.test_define_function_tool(session)
-                    await self.test_get_package_tool(session)
-                    await self.test_reset_cl_tool(session)
-                    await self.test_query_cl_package_tool(session)
-                    await self.test_error_handling(session)
-                    
+            if self.transport == "http":
+                await self._run_tests_http()
+            else:
+                await self._run_tests_stdio()
+                
         except Exception as e:
             self.suite.add(TestResult(
                 name="Connection",
@@ -113,6 +109,43 @@ class MCPClientTester:
             
         self.suite.print_summary()
         return self.suite.failed == 0
+    
+    async def _run_tests_http(self):
+        """Run tests using HTTP transport"""
+        async with streamable_http_client(self.url) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await self._run_test_suite(session)
+    
+    async def _run_tests_stdio(self):
+        """Run tests using stdio transport"""
+        # Find the wrapper script
+        script_dir = Path(__file__).parent
+        wrapper = script_dir.parent / "acl2-mcp-stdio.py"
+        
+        server_params = StdioServerParameters(
+            command=sys.executable,
+            args=[str(wrapper)],
+        )
+        
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await self._run_test_suite(session)
+    
+    async def _run_test_suite(self, session: ClientSession):
+        """Run all tests with the given session"""
+        # Initialize the connection
+        self.log("Initializing session...")
+        result = await session.initialize()
+        self.log(f"Server: {result.serverInfo.name} v{result.serverInfo.version}")
+        
+        # Run test categories
+        await self.test_tool_discovery(session)
+        await self.test_eval_cl_tool(session)
+        await self.test_define_function_tool(session)
+        await self.test_get_package_tool(session)
+        await self.test_reset_cl_tool(session)
+        await self.test_query_cl_package_tool(session)
+        await self.test_error_handling(session)
         
     async def test_tool_discovery(self, session: ClientSession):
         """Test that we can discover available tools"""
@@ -411,13 +444,15 @@ class MCPClientTester:
 
 async def main():
     parser = argparse.ArgumentParser(description="MCP Client Tests for ACL2-MCP-Bridge")
+    parser.add_argument("--transport", "-t", choices=["http", "stdio"], default="http",
+                        help="Transport type (default: http)")
     parser.add_argument("--url", default="http://localhost:8080/mcp",
-                        help="MCP server URL (default: http://localhost:8080/mcp)")
+                        help="MCP server URL for HTTP transport (default: http://localhost:8080/mcp)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose output")
     args = parser.parse_args()
     
-    tester = MCPClientTester(args.url, args.verbose)
+    tester = MCPClientTester(args.transport, args.url, args.verbose)
     success = await tester.run_all_tests()
     
     sys.exit(0 if success else 1)

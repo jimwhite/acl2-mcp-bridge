@@ -57,7 +57,7 @@
 ;; Define the BRIDGE package for compatibility with the centaur/bridge protocol.
 ;; Python clients (acl2_bridge) wrap all commands in (bridge::in-main-thread ...)
 (defpackage #:bridge
-  (:use)  ; No uses - symbols accessed via bridge:: prefix
+  (:use #:cl)  ; Use CL for standard symbols
   (:export #:in-main-thread
            #:try-in-main-thread
            ;; Socket primitives for Unix socket support

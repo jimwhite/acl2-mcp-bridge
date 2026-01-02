@@ -34,6 +34,12 @@ def send_message(proc: subprocess.Popen, msg: dict):
 
 def read_message(proc: subprocess.Popen, timeout: float = 30.0) -> dict | None:
     """Read JSON-RPC message with Content-Length framing."""
+    import select
+    
+    # Wait for data to be available
+    if not select.select([proc.stdout], [], [], timeout)[0]:
+        return None
+    
     # Read headers line by line
     headers = {}
     while True:
@@ -71,11 +77,6 @@ class StdioWrapperTests:
             text=True,
             bufsize=0
         )
-        
-        # Wait for wrapper to start (check stderr for startup messages)
-        # Give it time to launch ACL2 and wait for socket
-        log("Waiting for wrapper to initialize...")
-        time.sleep(2)
         
     def stop_wrapper(self):
         """Stop the stdio wrapper."""
@@ -266,33 +267,7 @@ def main():
     try:
         tests.start_wrapper()
         
-        # Wait for the wrapper to signal it's ready
-        # Read stderr until we see "ready" message
-        log("Waiting for MCP server to be ready...")
-        start_time = time.time()
-        while time.time() - start_time < 90:
-            # Check if process died
-            if tests.proc.poll() is not None:
-                log("ERROR: Wrapper process died!")
-                stdout = tests.proc.stdout.read()
-                stderr = tests.proc.stderr.read()
-                log(f"stdout: {stdout[:500]}")
-                log(f"stderr: {stderr[:1000]}")
-                return 1
-            
-            # Non-blocking read of stderr to check for ready message
-            import select
-            if select.select([tests.proc.stderr], [], [], 0.5)[0]:
-                line = tests.proc.stderr.readline()
-                if args.verbose:
-                    print(f"  [wrapper] {line.rstrip()}", file=sys.stderr)
-                if "ready" in line.lower() or "bridging" in line.lower():
-                    log("Wrapper is ready!")
-                    break
-        else:
-            log("ERROR: Timeout waiting for wrapper to be ready")
-            return 1
-        
+        # Just run the tests - wrapper handles its own startup
         tests.run_all()
         tests.print_summary()
         

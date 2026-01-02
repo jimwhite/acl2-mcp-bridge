@@ -114,9 +114,10 @@ introspects the current session package. Useful for exploring available definiti
 Uses session-http-transport for HTTP to provide isolated sessions per client.
 Each client (identified by MCP session ID) gets its own CL evaluation context.
 
-:transport :http     - HTTP transport
-:port                - TCP port (for HTTP over TCP)
-:socket-path         - Unix socket path (for HTTP over Unix socket)"
+:transport :http        - HTTP transport (TCP)
+:transport :unix-socket - Raw JSON-RPC over Unix socket (for stdio wrapper)
+:port                   - TCP port (for HTTP over TCP)
+:socket-path            - Unix socket path"
   (declare (ignore host))
   (log:info "Starting MCP server with transport ~A" transport)
   
@@ -131,14 +132,24 @@ Each client (identified by MCP session ID) gets its own CL evaluation context.
                         (find-symbol "HANDLE-MESSAGE" 
                                      (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
             (rpc-server (funcall init-fn acl2-mcp-tools))
-            (transport-obj (if socket-path
-                               (make-instance 'unix-socket-http-transport 
-                                              :socket-path socket-path
-                                              :port (or port 0))
-                               (make-instance 'session-http-transport :port port))))
+            (transport-obj (make-instance 'session-http-transport :port port)))
        (start-loop transport-obj
                    (lambda (message)
                      (funcall handle-fn rpc-server message)))))
+    (:unix-socket
+     ;; Raw JSON-RPC over Unix socket (same protocol as stdio)
+     (unless socket-path
+       (error "socket-path required for :unix-socket transport"))
+     (let* ((init-fn (symbol-function 
+                      (find-symbol "INITIALIZE-RPC-SERVER" 
+                                   (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
+            (handle-fn (symbol-function 
+                        (find-symbol "HANDLE-MESSAGE" 
+                                     (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
+            (rpc-server (funcall init-fn acl2-mcp-tools)))
+       (start-unix-socket-jsonrpc-server socket-path
+                                         (lambda (message)
+                                           (funcall handle-fn rpc-server message)))))
     (:stdio
      ;; Use standard 40ants-mcp for stdio (not recommended for ACL2)
      (40ants-mcp/server/definition:start-server 

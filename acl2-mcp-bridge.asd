@@ -18,6 +18,7 @@
   :serial t
   :components ((:file "package")
                (:file "config")
+               (:file "bridge-sbcl")
                (:file "acl2-interface")
                (:file "sessions")
                (:file "session-transport")

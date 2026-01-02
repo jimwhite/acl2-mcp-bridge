@@ -267,10 +267,13 @@ Inherits socket-path from session-http-transport."))
   
   ;; Remove existing socket file
   (when (probe-file socket-path)
+    (log:info "Removing existing socket file")
     (delete-file socket-path))
   
-  ;; Create socket using our bridge primitives  
+  ;; Create socket using our bridge primitives
+  (log:info "Creating Unix socket...")
   (let ((server-socket (bridge::ccl-make-socket-unix socket-path)))
+    (log:info "Unix socket created: ~A, file exists: ~A" server-socket (probe-file socket-path))
     (setf (transport-server-socket transport) server-socket)
     (setf (transport-running transport) t)
     
@@ -292,3 +295,78 @@ Inherits socket-path from session-http-transport."))
          (ignore-errors (sb-bsd-sockets:socket-close server-socket))
          (ignore-errors (delete-file socket-path))))
      :name "MCP Unix Socket Server")))
+
+;;; ---------------------------------------------------------------------------
+;;; Unix Socket JSON-RPC Server (raw protocol, same as stdio)
+;;; ---------------------------------------------------------------------------
+
+(defun read-jsonrpc-message (stream)
+  "Read a Content-Length framed JSON-RPC message from stream."
+  (let ((content-length nil))
+    ;; Read headers
+    (loop for line = (read-line stream nil nil)
+          while (and line (> (length line) 0) (not (string= line (string #\Return))))
+          do (let ((trimmed (string-trim '(#\Return #\Newline) line)))
+               (when (and (> (length trimmed) 0)
+                          (search "content-length:" (string-downcase trimmed)))
+                 (setf content-length 
+                       (parse-integer (subseq trimmed (1+ (position #\: trimmed))) 
+                                      :junk-allowed t)))))
+    (when content-length
+      (let ((buf (make-string content-length)))
+        (read-sequence buf stream)
+        buf))))
+
+(defun write-jsonrpc-message (stream message)
+  "Write a Content-Length framed JSON-RPC message to stream."
+  (format stream "Content-Length: ~A~C~C~C~C~A" 
+          (length message) #\Return #\Newline #\Return #\Newline message)
+  (force-output stream))
+
+(defun handle-unix-jsonrpc-connection (client-stream message-handler)
+  "Handle a JSON-RPC connection on Unix socket (same protocol as stdio)."
+  (log:info "handle-unix-jsonrpc-connection starting")
+  (let ((*current-session* (get-or-create-session "unix-socket")))
+    (loop
+      (handler-case
+          (progn
+            (log:info "Waiting for message...")
+            (let ((message (read-jsonrpc-message client-stream)))
+              (log:info "Got message: ~A" (if message (subseq message 0 (min 100 (length message))) "NIL"))
+              (unless message
+                (return))  ; EOF
+              (let ((response (funcall message-handler message)))
+                (log:info "Got response: ~A" (if response (subseq response 0 (min 100 (length response))) "NIL"))
+                (when response
+                  (write-jsonrpc-message client-stream response)))))
+        (end-of-file () (return))
+        (error (e)
+          (log:error "Error handling JSON-RPC: ~A" e)
+          (return))))))
+
+(defun start-unix-socket-jsonrpc-server (socket-path message-handler)
+  "Start JSON-RPC server on Unix domain socket (same protocol as stdio)."
+  (log:info "Starting MCP JSON-RPC server on Unix socket: ~A" socket-path)
+  
+  ;; Remove existing socket file
+  (when (probe-file socket-path)
+    (delete-file socket-path))
+  
+  ;; Create socket
+  (let ((server-socket (bridge::ccl-make-socket-unix socket-path)))
+    (log:info "Unix socket ready: ~A" socket-path)
+    
+    ;; Accept connections (single client for stdio wrapper)
+    (bt:make-thread
+     (lambda ()
+       (log:info "Server thread starting, about to accept...")
+       (unwind-protect
+           (let ((client-stream (bridge::ccl-accept-connection server-socket)))
+             (log:info "Client connected")
+             (unwind-protect
+                 (handle-unix-jsonrpc-connection client-stream message-handler)
+               (close client-stream)))
+         ;; Cleanup
+         (ignore-errors (sb-bsd-sockets:socket-close server-socket))
+         (ignore-errors (delete-file socket-path))))
+     :name "MCP Unix Socket JSON-RPC Server")))

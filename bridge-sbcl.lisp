@@ -59,14 +59,33 @@
 (defun ccl-make-socket-unix (path)
   "Create a Unix domain socket at PATH."
   ;; Use SBCL's native sb-bsd-sockets for Unix sockets
+  (format *error-output* "~&[ccl-make-socket-unix] requiring sb-bsd-sockets~%")
+  (force-output *error-output*)
   (require :sb-bsd-sockets)
-  (let ((socket (make-instance 'sb-bsd-sockets:local-socket :type :stream)))
-    ;; Remove existing socket file if present
-    (when (probe-file path)
-      (delete-file path))
-    (sb-bsd-sockets:socket-bind socket path)
-    (sb-bsd-sockets:socket-listen socket 5)
-    socket))
+  (format *error-output* "~&[ccl-make-socket-unix] creating local-socket instance~%")
+  (force-output *error-output*)
+  (handler-case
+      (let ((socket (make-instance 'sb-bsd-sockets:local-socket :type :stream)))
+        (format *error-output* "~&[ccl-make-socket-unix] socket instance created~%")
+        (force-output *error-output*)
+        ;; Remove existing socket file if present
+        (when (probe-file path)
+          (format *error-output* "~&[ccl-make-socket-unix] removing existing socket~%")
+          (force-output *error-output*)
+          (delete-file path))
+        (format *error-output* "~&[ccl-make-socket-unix] binding to ~A~%" path)
+        (force-output *error-output*)
+        (sb-bsd-sockets:socket-bind socket path)
+        (format *error-output* "~&[ccl-make-socket-unix] listening~%")
+        (force-output *error-output*)
+        (sb-bsd-sockets:socket-listen socket 5)
+        (format *error-output* "~&[ccl-make-socket-unix] done, file exists: ~A~%" (probe-file path))
+        (force-output *error-output*)
+        socket)
+    (error (e)
+      (format *error-output* "~&[ccl-make-socket-unix] ERROR: ~A~%" e)
+      (force-output *error-output*)
+      (error e))))
 
 (defun ccl-accept-connection (server-socket)
   "Accept a connection and return a bidirectional stream."
