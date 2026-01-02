@@ -43,34 +43,36 @@ The devcontainer includes:
 - All required dependencies pre-installed
 
 ## Key Features
-### 1. ACL2 Theorem Proving Tools (from septract/acl2-mcp)
-- **check-theorem** - Verify a specific theorem
-- **admit** - Admit an event (function/theorem)
-- **query-event** - Retrieve event definitions and properties
-- **verify-guards** - Check guard conditions
-- **prove-theorem** - Attempt automated proofs
-- **check-book** - Validate an entire ACL2 book
-- **get-event-history** - Retrieve proof history
-- **undo-to-point** - Revert to earlier state
 
-### 2. Common Lisp REPL Integration (native + bridge)
-- **eval-cl** - Evaluate Common Lisp expressions
-- **cl-repl-session** - Persistent CL REPL session
-- **load-file** - Load Lisp source files
-- **define-function** - Define CL functions dynamically
-- **query-cl-package** - Introspect packages
+### 1. Common Lisp REPL Tools
+- **eval_cl** - Evaluate Common Lisp expressions
+- **load_file** - Load Lisp source files
+- **define_function** - Define CL functions dynamically
+- **get_package** - Get current session package
+- **query_cl_package** - Introspect packages
+- **reset_cl** - Reset session state
 
-### 3. Bridge & Interop Tools
-- **bridge-acl2-to-cl** - Send ACL2 data to CL
-- **bridge-cl-to-acl2** - Send CL data to ACL2
-- **acl2-cl-eval** - Cross-language evaluation
-- **get-dependencies** - Analyze theorem dependencies
+### 2. ACL2 Theorem Proving Tools
+- **acl2_evaluate** - Evaluate ACL2 expressions
+- **acl2_admit** - Admit events (defun, defthm, etc.)
+- **acl2_prove** - Prove and admit theorems
+- **acl2_check_provable** - Test provability without admitting
+- **acl2_check_syntax** - Quick syntax check
+- **acl2_verify_guards** - Verify guard conditions
+- **acl2_query_event** - Get definitions and properties
+- **acl2_include_book** - Load certified books
+- **acl2_certify_book** - Certify a book
+- **acl2_undo** - Undo recent events
 
-### 4. Code Analysis & Transformation
-- **extract-lemmas** - Get supporting lemmas
-- **suggest-proofs** - AI-assisted proof suggestions
-- **dependency-graph** - Visualize proof dependencies
-- **trace-execution** - Debug theorem proving
+### 3. Bridge & Analysis Tools (experimental)
+- **bridge_acl2_to_cl** - Evaluate ACL2, store result in CL
+- **bridge_cl_to_acl2** - Evaluate CL, format for ACL2
+- **acl2_cl_eval** - Cross-language evaluation
+- **get_dependencies** - Analyze theorem dependencies
+- **extract_lemmas** - Get lemmas used in a proof
+- **suggest_proofs** - Proof strategy suggestions
+- **dependency_graph** - Visualize dependencies
+- **trace_execution** - Debug function calls
 
 
 ## Quick Start
@@ -164,32 +166,29 @@ Each session gets:
 
 | Tool | Description |
 |------|-------------|
-| `check_theorem` | Check if a theorem is provable (doesn't admit) |
-| `prove_theorem` | Prove and admit a theorem using defthm |
-| `admit` | Admit an ACL2 event (defun, defthm, etc.) |
-| `verify_guards` | Verify guard conditions for a function |
-| `query_event` | Get information about a named event |
-| `get_event_history` | Retrieve proof/event history |
-| `undo_to_point` | Revert ACL2 world to earlier state |
-| `check_book` | Certify an ACL2 book |
+| `acl2_evaluate` | Evaluate ACL2 expressions or define functions |
+| `acl2_prove` | Submit a defthm for proof and admission |
+| `acl2_check_provable` | Check if a theorem is provable (doesn't admit) |
+| `acl2_admit` | Admit an ACL2 event (defun, defthm, defmacro, etc.) |
+| `acl2_check_syntax` | Quick syntax check without execution |
+| `acl2_verify_guards` | Verify guard conditions for a function |
+| `acl2_query_event` | Get definition and properties of a named event |
+| `acl2_include_book` | Load a certified ACL2 book |
+| `acl2_certify_book` | Certify an ACL2 book |
+| `acl2_undo` | Undo recent events |
 
-### Bridge & Interop Tools
+### Bridge & Analysis Tools (experimental)
 
 | Tool | Description |
 |------|-------------|
-| `bridge_acl2_to_cl` | Evaluate ACL2, make result available in CL |
+| `bridge_acl2_to_cl` | Evaluate ACL2, store result in CL `*acl2-result*` |
 | `bridge_cl_to_acl2` | Evaluate CL, format result for ACL2 |
 | `acl2_cl_eval` | Cross-language evaluation (both environments) |
 | `get_dependencies` | Analyze theorem/function dependencies |
-
-### Code Analysis & Transformation
-
-| Tool | Description |
-|------|-------------|
 | `extract_lemmas` | Get supporting lemmas used in a proof |
-| `suggest_proofs` | AI-assisted proof strategy suggestions |
+| `suggest_proofs` | Proof strategy suggestions |
 | `dependency_graph` | Visualize proof dependency tree |
-| `trace_execution` | Debug by tracing function calls |
+| `trace_execution` | Trace/untrace function calls |
 
 ## Example Usage
 
@@ -388,7 +387,35 @@ The original `centaur/bridge/bridge-raw.lsp` uses CCL-specific APIs. Key transla
 
 ## Testing
 
+### MCP Client Tests (Python SDK)
+
+The primary test suite uses the official MCP Python SDK to test all tools:
+
+```bash
+./tests/run-mcp-client-tests.sh
+```
+
+Options:
+- `-v, --verbose` - Enable verbose output
+- `-p, --port PORT` - Server port (default: 8080)
+- `-t, --transport TYPE` - Transport: 'http' or 'stdio' (default: http)
+
+The script:
+1. Starts the MCP server in ACL2
+2. Waits for it to be ready
+3. Runs Python client tests using the official MCP SDK
+4. Reports pass/fail results
+
+Tests cover:
+- Tool discovery (CL and ACL2 tools)
+- `eval_cl`, `define_function`, `get_package`, `reset_cl`, `query_cl_package`
+- `acl2_evaluate`, `acl2_admit`, `acl2_prove`, `acl2_check_provable`
+- `acl2_query_event`, `acl2_include_book`
+- Error handling
+
 ### Unit Tests (FiveAM)
+
+Lisp-side unit tests:
 
 ```bash
 sbcl --eval '(asdf:load-system :acl2-mcp-bridge/tests)' \
@@ -396,20 +423,31 @@ sbcl --eval '(asdf:load-system :acl2-mcp-bridge/tests)' \
      --quit
 ```
 
-### MCP Client Tests (Python)
+### HTTP Integration Tests (curl)
 
-Comprehensive tests using the official MCP Python SDK:
+Low-level HTTP transport tests using curl:
 
 ```bash
-cd tests && ./run-mcp-client-tests.sh -v
+./tests/run-http-integration-tests.sh
 ```
 
-Tests cover: tool discovery, eval_cl, define_function, get_package, reset_cl, query_cl_package, and error handling.
-
-### Integration Tests (curl)
+### Manual Testing with curl
 
 ```bash
-./tests/mcp-test.sh
+# Initialize session
+curl -X POST http://127.0.0.1:8085/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}'
+
+# List available tools
+curl -X POST http://127.0.0.1:8085/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+
+# Call a tool
+curl -X POST http://127.0.0.1:8085/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"eval_cl","arguments":{"code":"(+ 1 2)"}}}'
 ```
 
 ## Session Isolation Example

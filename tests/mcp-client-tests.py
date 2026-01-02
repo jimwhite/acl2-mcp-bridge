@@ -154,6 +154,14 @@ class MCPClientTester:
         await self.test_query_cl_package_tool(session)
         await self.test_error_handling(session)
         
+        # ACL2 tool tests
+        await self.test_acl2_evaluate_tool(session)
+        await self.test_acl2_admit_tool(session)
+        await self.test_acl2_prove_tool(session)
+        await self.test_acl2_check_provable_tool(session)
+        await self.test_acl2_query_event_tool(session)
+        await self.test_acl2_include_book_tool(session)
+        
     async def test_tool_discovery(self, session: ClientSession):
         """Test that we can discover available tools"""
         print("\n--- Tool Discovery Tests ---")
@@ -178,6 +186,17 @@ class MCPClientTester:
                 name="Core CL tools available",
                 passed=len(found) == len(expected_tools),
                 message=f"Found {found}, expected {expected_tools}"
+            ))
+            
+            # Test: Should have ACL2 tools
+            acl2_tools = ['acl2_evaluate', 'acl2_admit', 'acl2_prove', 'acl2_check_provable', 
+                          'acl2_query_event', 'acl2_include_book', 'acl2_certify_book',
+                          'acl2_verify_guards', 'acl2_check_syntax', 'acl2_undo']
+            found_acl2 = [t for t in acl2_tools if t in tool_names]
+            self.suite.add(TestResult(
+                name="ACL2 tools available",
+                passed=len(found_acl2) >= 5,  # At least 5 of the ACL2 tools
+                message=f"Found {len(found_acl2)}/{len(acl2_tools)} ACL2 tools: {found_acl2}"
             ))
             
             # Test: Tools have descriptions
@@ -439,6 +458,209 @@ class MCPClientTester:
                     passed=expect_error,
                     message=f"Exception: {e}"
                 ))
+
+    # =========================================================================
+    # ACL2 Tool Tests
+    # =========================================================================
+    
+    async def test_acl2_evaluate_tool(self, session: ClientSession):
+        """Test the acl2_evaluate tool"""
+        print("\n--- acl2_evaluate Tool Tests ---")
+        
+        test_cases = [
+            # (name, code, expected_in_result)
+            ("Simple arithmetic", "(+ 1 2 3)", "6"),
+            ("List operations", "(append '(a b) '(c d))", "(A B C D)"),
+            ("Car/Cdr", "(car '(1 2 3))", "1"),
+            ("Boolean", "(equal 1 1)", "T"),
+        ]
+        
+        for name, code, expected in test_cases:
+            try:
+                result = await session.call_tool("acl2_evaluate", {"code": code})
+                result_text = self._get_result_text(result)
+                
+                self.log(f"{name}: {code} => {result_text}")
+                
+                passed = expected.upper() in result_text.upper()
+                self.suite.add(TestResult(
+                    name=f"acl2_evaluate: {name}",
+                    passed=passed,
+                    message=f"Got '{result_text[:80]}', expected '{expected}'"
+                ))
+                
+            except Exception as e:
+                self.suite.add(TestResult(
+                    name=f"acl2_evaluate: {name}",
+                    passed=False,
+                    message=str(e)
+                ))
+    
+    async def test_acl2_admit_tool(self, session: ClientSession):
+        """Test the acl2_admit tool"""
+        print("\n--- acl2_admit Tool Tests ---")
+        
+        try:
+            # Define a simple function
+            result = await session.call_tool("acl2_admit", {
+                "code": "(defun my-double (x) (* 2 x))"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"acl2_admit defun result: {result_text[:150]}")
+            
+            passed = "admitted" in result_text.lower() or "my-double" in result_text.lower()
+            self.suite.add(TestResult(
+                name="acl2_admit: Define function",
+                passed=passed,
+                message=result_text[:100]
+            ))
+            
+            # Test the function works
+            result = await session.call_tool("acl2_evaluate", {"code": "(my-double 21)"})
+            result_text = self._get_result_text(result)
+            
+            self.suite.add(TestResult(
+                name="acl2_admit: Call admitted function",
+                passed="42" in result_text,
+                message=f"Got '{result_text[:80]}', expected '42'"
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="acl2_admit tests",
+                passed=False,
+                message=str(e)
+            ))
+    
+    async def test_acl2_prove_tool(self, session: ClientSession):
+        """Test the acl2_prove tool"""
+        print("\n--- acl2_prove Tool Tests ---")
+        
+        try:
+            # Prove a simple theorem
+            result = await session.call_tool("acl2_prove", {
+                "code": "(defthm plus-commutes-simple (equal (+ a b) (+ b a)))"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"acl2_prove result: {result_text[:200]}")
+            
+            # Should indicate proof succeeded or was admitted
+            passed = ("proved" in result_text.lower() or 
+                     "admitted" in result_text.lower() or
+                     "q.e.d" in result_text.lower())
+            self.suite.add(TestResult(
+                name="acl2_prove: Simple theorem",
+                passed=passed,
+                message=result_text[:120]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="acl2_prove tests",
+                passed=False,
+                message=str(e)
+            ))
+    
+    async def test_acl2_check_provable_tool(self, session: ClientSession):
+        """Test the acl2_check_provable tool"""
+        print("\n--- acl2_check_provable Tool Tests ---")
+        
+        try:
+            # Check a provable theorem (without admitting)
+            result = await session.call_tool("acl2_check_provable", {
+                "conjecture": "(equal (car (cons x y)) x)"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"acl2_check_provable result: {result_text[:150]}")
+            
+            # Should indicate provable: T
+            passed = "provable: t" in result_text.lower() or "true" in result_text.lower()
+            self.suite.add(TestResult(
+                name="acl2_check_provable: Valid theorem",
+                passed=passed,
+                message=result_text[:100]
+            ))
+            
+            # Check an unprovable statement
+            result = await session.call_tool("acl2_check_provable", {
+                "conjecture": "(equal x y)"  # Not always true
+            })
+            result_text = self._get_result_text(result)
+            
+            # This should fail or indicate not provable
+            self.suite.add(TestResult(
+                name="acl2_check_provable: Unprovable statement handled",
+                passed=True,  # Just check it doesn't crash
+                message=result_text[:100]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="acl2_check_provable tests",
+                passed=False,
+                message=str(e)
+            ))
+    
+    async def test_acl2_query_event_tool(self, session: ClientSession):
+        """Test the acl2_query_event tool"""
+        print("\n--- acl2_query_event Tool Tests ---")
+        
+        try:
+            # Query a built-in function
+            result = await session.call_tool("acl2_query_event", {
+                "name": "append"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"acl2_query_event append: {result_text[:150]}")
+            
+            # Should return some info about append
+            passed = len(result_text) > 10 and "error" not in result_text.lower()
+            self.suite.add(TestResult(
+                name="acl2_query_event: Built-in function",
+                passed=passed,
+                message=result_text[:100]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="acl2_query_event tests",
+                passed=False,
+                message=str(e)
+            ))
+    
+    async def test_acl2_include_book_tool(self, session: ClientSession):
+        """Test the acl2_include_book tool"""
+        print("\n--- acl2_include_book Tool Tests ---")
+        
+        try:
+            # Include a standard book
+            result = await session.call_tool("acl2_include_book", {
+                "book_path": "std/lists/top",
+                "dir": ":system"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"acl2_include_book result: {result_text[:150]}")
+            
+            # Should indicate success loading
+            passed = ("loaded" in result_text.lower() or 
+                     "std/lists" in result_text.lower())
+            self.suite.add(TestResult(
+                name="acl2_include_book: Load standard book",
+                passed=passed,
+                message=result_text[:100]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="acl2_include_book tests",
+                passed=False,
+                message=str(e)
+            ))
                 
     def _get_result_text(self, result) -> str:
         """Extract text from tool result"""

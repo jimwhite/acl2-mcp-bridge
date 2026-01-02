@@ -25,10 +25,10 @@
                (:file "threading-utils")
                (:file "bridge-protocol")
                (:file "message-format")
-               (:file "tools-acl2")
-               (:file "tools-cl")
-               (:file "tools-bridge")
-               (:file "mcp-server")
+               (:file "mcp-server")      ; Defines acl2-mcp-tools API
+               (:file "tools-acl2")      ; ACL2 tools (uses acl2-mcp-tools)
+               (:file "tools-cl")        ; (currently empty/placeholder)
+               (:file "tools-bridge")    ; Bridge tools (uses bridge-api)
                (:file "main")))
 
 (asdf:defsystem "acl2-mcp-bridge/tests"
