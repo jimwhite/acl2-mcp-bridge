@@ -25,37 +25,26 @@ def log(msg: str):
 
 
 def send_message(proc: subprocess.Popen, msg: dict):
-    """Send JSON-RPC message with Content-Length framing."""
+    """Send JSON-RPC message as newline-delimited JSON (MCP stdio format)."""
     data = json.dumps(msg)
-    header = f"Content-Length: {len(data)}\r\n\r\n"
-    proc.stdin.write(header + data)
+    proc.stdin.write(data + "\n")
     proc.stdin.flush()
 
 
 def read_message(proc: subprocess.Popen, timeout: float = 30.0) -> dict | None:
-    """Read JSON-RPC message with Content-Length framing."""
+    """Read JSON-RPC message as newline-delimited JSON (MCP stdio format)."""
     import select
     
     # Wait for data to be available
     if not select.select([proc.stdout], [], [], timeout)[0]:
         return None
     
-    # Read headers line by line
-    headers = {}
-    while True:
-        line = proc.stdout.readline()
-        if line == "\r\n" or line == "\n" or line == "":
-            break
-        if ":" in line:
-            key, value = line.split(":", 1)
-            headers[key.strip().lower()] = value.strip()
-    
-    if "content-length" not in headers:
+    # Read a single line of JSON
+    line = proc.stdout.readline()
+    if not line:
         return None
     
-    content_length = int(headers["content-length"])
-    body = proc.stdout.read(content_length)
-    return json.loads(body)
+    return json.loads(line.strip())
 
 
 class StdioWrapperTests:

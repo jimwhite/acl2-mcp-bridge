@@ -20,9 +20,14 @@
 
 (defclass session-http-transport (40ants-mcp/http-transport:http-transport)
   ((socket-path :initarg :socket-path :initform nil :accessor transport-socket-path
-                :documentation "Unix socket path for stdio wrapper mode, or NIL for TCP."))
+                :documentation "Unix socket path for stdio wrapper mode, or NIL for TCP.")
+   (server-socket :initform nil :accessor transport-server-socket
+                  :documentation "Unix socket server instance.")
+   (running :initform nil :accessor transport-running
+            :documentation "Running flag for Unix socket server."))
   (:documentation "HTTP transport with MCP-compliant session management.
-Each unique session ID gets its own isolated CL evaluation context."))
+Each unique session ID gets its own isolated CL evaluation context.
+Supports both TCP (via Clack) and Unix socket modes."))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Session ID Generation
@@ -301,33 +306,87 @@ Inherits socket-path from session-http-transport."))
 ;;; ---------------------------------------------------------------------------
 
 (defun read-jsonrpc-message (stream)
-  "Read a Content-Length framed JSON-RPC message from stream."
-  (format *error-output* "~&[read-jsonrpc] starting read-line...~%")
+  "Read a JSON-RPC message from stream.
+   Supports both Content-Length framed messages and raw JSON (newline-delimited)."
+  (format *error-output* "~&[read-jsonrpc] starting read...~%")
   (force-output *error-output*)
-  (let ((content-length nil))
-    ;; Read headers
-    (loop for line = (read-line stream nil nil)
-          do (format *error-output* "~&[read-jsonrpc] line: ~S~%" line)
-             (force-output *error-output*)
-          while (and line (> (length line) 0) (not (string= line (string #\Return))))
-          do (let ((trimmed (string-trim '(#\Return #\Newline) line)))
-               (when (and (> (length trimmed) 0)
-                          (search "content-length:" (string-downcase trimmed)))
-                 (setf content-length 
-                       (parse-integer (subseq trimmed (1+ (position #\: trimmed))) 
-                                      :junk-allowed t)))))
-    (format *error-output* "~&[read-jsonrpc] content-length: ~A~%" content-length)
+  
+  ;; Peek at first character to determine format
+  (let ((first-char (peek-char nil stream nil nil)))
+    (format *error-output* "~&[read-jsonrpc] first char: ~S~%" first-char)
     (force-output *error-output*)
-    (when content-length
-      (let ((buf (make-string content-length)))
-        (read-sequence buf stream)
-        buf))))
+    
+    (cond
+      ;; Raw JSON - starts with {
+      ((eql first-char #\{)
+       (format *error-output* "~&[read-jsonrpc] detected raw JSON mode~%")
+       (force-output *error-output*)
+       ;; Read until we have balanced braces
+       (let ((result (make-array 0 :element-type 'character :adjustable t :fill-pointer 0))
+             (brace-count 0)
+             (in-string nil)
+             (escape-next nil))
+         (loop for ch = (read-char stream nil nil)
+               while ch
+               do (vector-push-extend ch result)
+                  (cond
+                    (escape-next (setf escape-next nil))
+                    ((eql ch #\\) (setf escape-next t))
+                    ((eql ch #\") (setf in-string (not in-string)))
+                    ((and (not in-string) (eql ch #\{)) (incf brace-count))
+                    ((and (not in-string) (eql ch #\})) (decf brace-count)))
+               until (and (not in-string) (zerop brace-count)))
+         ;; Consume trailing whitespace (newlines between JSON messages)
+         (loop for next-char = (peek-char nil stream nil nil)
+               while (and next-char (member next-char '(#\Newline #\Return #\Space #\Tab)))
+               do (read-char stream nil nil))
+         (format *error-output* "~&[read-jsonrpc] read ~D chars of JSON~%" (length result))
+         (force-output *error-output*)
+         (coerce result 'string)))
+      
+      ;; Content-Length framed
+      ((and first-char (alpha-char-p first-char))
+       (format *error-output* "~&[read-jsonrpc] detected Content-Length mode~%")
+       (force-output *error-output*)
+       (let ((content-length nil))
+         ;; Read headers until blank line
+         (loop for line = (read-line stream nil nil)
+               while (and line 
+                          (> (length line) 0) 
+                          (not (every (lambda (c) (member c '(#\Return #\Newline #\Space))) line)))
+               do (let ((trimmed (string-trim '(#\Return #\Newline #\Space) line)))
+                    (when (and (> (length trimmed) 15)
+                               (string-equal "content-length:" (subseq trimmed 0 15)))
+                      (setf content-length 
+                            (parse-integer (subseq trimmed 15) :junk-allowed t)))))
+         (format *error-output* "~&[read-jsonrpc] content-length: ~A~%" content-length)
+         (force-output *error-output*)
+         (when content-length
+           (let ((buf (make-string content-length)))
+             (read-sequence buf stream)
+             buf))))
+      
+      ;; EOF or error
+      (t
+       (format *error-output* "~&[read-jsonrpc] EOF or no data~%")
+       (force-output *error-output*)
+       nil))))
 
-(defun write-jsonrpc-message (stream message)
-  "Write a Content-Length framed JSON-RPC message to stream."
-  (format stream "Content-Length: ~A~C~C~C~C~A" 
-          (length message) #\Return #\Newline #\Return #\Newline message)
-  (force-output stream))
+(defun write-jsonrpc-message (stream message &key (format :newline))
+  "Write a JSON-RPC message to stream.
+   :format :newline - Simple newline-delimited (for stdio)
+   :format :content-length - Content-Length framed (for HTTP body)"
+  (case format
+    (:newline
+     ;; Simple newline-delimited JSON (what MCP stdio uses)
+     (write-string message stream)
+     (write-char #\Newline stream)
+     (force-output stream))
+    (:content-length
+     ;; Content-Length framed (for HTTP)
+     (format stream "Content-Length: ~A~C~C~C~C~A" 
+             (length message) #\Return #\Newline #\Return #\Newline message)
+     (force-output stream))))
 
 (defun handle-unix-jsonrpc-connection (client-stream message-handler)
   "Handle a JSON-RPC connection on Unix socket (same protocol as stdio)."

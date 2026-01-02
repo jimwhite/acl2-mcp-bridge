@@ -1,0 +1,43 @@
+2026-01-01 16:57:07.812 [info] Starting server acl2-mcp-bridge
+2026-01-01 16:57:07.813 [info] Connection state: Starting
+2026-01-01 16:57:07.813 [info] Starting server from Remote extension host
+2026-01-01 16:57:07.831 [info] Connection state: Starting
+2026-01-01 16:57:07.831 [info] Connection state: Running
+2026-01-01 16:57:07.920 [warning] [server stderr] [acl2-mcp-stdio] Starting ACL2 MCP server on /tmp/acl2-mcp-75032.sock
+2026-01-01 16:57:07.920 [warning] [server stderr] [acl2-mcp-stdio] Waiting for server...
+2026-01-01 16:57:08.329 [warning] [server stderr] WARNING: System definition file #P"/home/jovyan/quicklisp/dists/ultralisp/software/diogoalexandrefranco-cl-strings-20210309201001/cl-strings.asd" contains definition for system "cl-strings-tests". Please only define "cl-strings" and secondary systems with a name starting with "cl-strings/" (e.g. "cl-strings/test") in that file.
+2026-01-01 16:57:08.587 [warning] [server stderr] WARNING: redefining LOG4CL-IMPL:APPENDER-ADDED in DEFGENERIC
+2026-01-01 16:57:08.587 [warning] [server stderr] WARNING: redefining LOG4CL-IMPL:APPENDER-REMOVED in DEFGENERIC
+2026-01-01 16:57:08.587 [warning] [server stderr] WARNING: redefining LOG4CL-IMPL::PROPERTY-ALIST in DEFGENERIC
+2026-01-01 16:57:08.877 [warning] [server stderr] WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+2026-01-01 16:57:08.993 [warning] [server stderr] WARNING: redefining SENTO.ACTOR:CONTEXT in DEFGENERIC
+2026-01-01 16:57:08.993 [warning] [server stderr] WARNING: redefining SENTO.ACTOR:WATCHERS in DEFGENERIC
+2026-01-01 16:57:09.093 [warning] [server stderr] WARNING: redefining ACL2-MCP-BRIDGE::SEND-BRIDGE-MESSAGE in DEFUN
+2026-01-01 16:57:09.093 [warning] [server stderr] WARNING: redefining ACL2-MCP-BRIDGE::SEND-BRIDGE-RETURN in DEFUN
+2026-01-01 16:57:09.093 [warning] [server stderr] WARNING: redefining ACL2-MCP-BRIDGE::SEND-BRIDGE-ERROR in DEFUN
+2026-01-01 16:57:09.093 [warning] [server stderr] [start-server] Starting on /tmp/acl2-mcp-75032.sock
+2026-01-01 16:57:09.093 [warning] [server stderr] [ccl-make-socket-unix] requiring sb-bsd-sockets
+2026-01-01 16:57:09.093 [warning] [server stderr] [ccl-make-socket-unix] creating local-socket instance
+2026-01-01 16:57:09.093 [warning] [server stderr] [ccl-make-socket-unix] socket instance created
+2026-01-01 16:57:09.093 [warning] [server stderr] [ccl-make-socket-unix] binding to /tmp/acl2-mcp-75032.sock
+2026-01-01 16:57:09.093 [warning] [server stderr] [ccl-make-socket-unix] listening
+2026-01-01 16:57:09.093 [warning] [server stderr] [ccl-make-socket-unix] done, file exists: /tmp/acl2-mcp-75032.sock
+2026-01-01 16:57:09.093 [warning] [server stderr] [acl2-mcp-stdio] Connected to socket
+2026-01-01 16:57:09.093 [warning] [server stderr] [acl2-mcp-stdio] Connected, bridging stdio <-> socket
+2026-01-01 16:57:09.093 [warning] [server stderr] [acl2-mcp-stdio] stdin->socket: 352 bytes: b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities'
+2026-01-01 16:57:09.094 [warning] [server stderr] [start-server] Socket ready, accepting...
+2026-01-01 16:57:09.094 [warning] [server stderr] [ccl-accept-connection] called with LOCAL-SOCKET
+2026-01-01 16:57:09.094 [warning] [server stderr] [ccl-accept-connection] calling socket-accept...
+2026-01-01 16:57:09.094 [warning] [server stderr] [ccl-accept-connection] got client socket
+2026-01-01 16:57:09.094 [warning] [server stderr] [start-server] Client connected!
+2026-01-01 16:57:09.094 [warning] [server stderr] [handle-connection] starting
+2026-01-01 16:57:09.094 [warning] [server stderr] [handle-connection] reading message...
+2026-01-01 16:57:09.094 [warning] [server stderr] [read-jsonrpc] starting read-line...
+2026-01-01 16:57:09.097 [warning] [server stderr] [read-jsonrpc] line 1 (351 chars): "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"roots\":{\"listChanged\":true},\"sampling\":{},\"elicitation\":{\"form\":{},\"url\":{}},\"tasks\":{\"list\":{},\"cancel\":{},\"requests\":{\"sampling\":{\"createMessage\":{}},\"elicitation\":{\"create\":{}}}}},\"clientInfo\":{\"name\":\"Visual Studio Code\",\"version\":\"1.107.1\"}}}"
+2026-01-01 16:57:12.839 [info] Waiting for server to respond to `initialize` request...
+2026-01-01 16:57:17.843 [info] Waiting for server to respond to `initialize` request...
+2026-01-01 16:57:22.847 [info] Waiting for server to respond to `initialize` request...
+2026-01-01 16:57:27.848 [info] Waiting for server to respond to `initialize` request...
+2026-01-01 16:57:30.353 [info] Stopping server acl2-mcp-bridge
+2026-01-01 16:57:30.377 [warning] [server stderr] [acl2-mcp-stdio] EOF on stdin
+2026-01-01 16:57:30.400 [info] Connection state: Stopped

@@ -6,12 +6,13 @@ Uses the official MCP Python SDK to test the ACL2 MCP server.
 Supports Streamable HTTP and stdio transports.
 
 Usage:
-    python mcp-client-tests.py [--transport http|stdio] [--url URL] [--verbose]
+    python mcp-client-tests.py [--transport http|stdio] [--url URL] [--stdio-command CMD] [--verbose]
     
 Options:
-    --transport    Transport type: 'http' or 'stdio' (default: http)
-    --url URL      MCP server URL for HTTP transport (default: http://localhost:8080/mcp)
-    --verbose      Enable verbose output
+    --transport      Transport type: 'http' or 'stdio' (default: http)
+    --url URL        MCP server URL for HTTP transport (default: http://localhost:8080/mcp)
+    --stdio-command  Command for stdio transport (default: mcp-proxy-tool -u http://localhost:8080/mcp)
+    --verbose        Enable verbose output
 """
 
 import asyncio
@@ -76,10 +77,11 @@ class TestSuite:
 class MCPClientTester:
     """Test harness for MCP server using official SDK"""
     
-    def __init__(self, transport: str = "http", url: str = None, verbose: bool = False):
+    def __init__(self, transport: str = "http", url: str = None, verbose: bool = False, stdio_command: str = None):
         self.transport = transport
         self.url = url or "http://localhost:8080/mcp"
         self.verbose = verbose
+        self.stdio_command = stdio_command or f"mcp-proxy-tool -u {self.url}"
         self.suite = TestSuite()
         
     def log(self, msg: str):
@@ -118,13 +120,18 @@ class MCPClientTester:
     
     async def _run_tests_stdio(self):
         """Run tests using stdio transport"""
-        # Find the wrapper script
-        script_dir = Path(__file__).parent
-        wrapper = script_dir.parent / "acl2-mcp-stdio.py"
+        import shlex
+        
+        # Parse the stdio command
+        cmd_parts = shlex.split(self.stdio_command)
+        command = cmd_parts[0]
+        args = cmd_parts[1:] if len(cmd_parts) > 1 else []
+        
+        self.log(f"Starting stdio server: {command} {' '.join(args)}")
         
         server_params = StdioServerParameters(
-            command=sys.executable,
-            args=[str(wrapper)],
+            command=command,
+            args=args,
         )
         
         async with stdio_client(server_params) as (read, write):
@@ -450,9 +457,11 @@ async def main():
                         help="MCP server URL for HTTP transport (default: http://localhost:8080/mcp)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Enable verbose output")
+    parser.add_argument("--stdio-command", 
+                        help="Command for stdio transport (default: mcp-proxy-tool -u <url>)")
     args = parser.parse_args()
     
-    tester = MCPClientTester(args.transport, args.url, args.verbose)
+    tester = MCPClientTester(args.transport, args.url, args.verbose, args.stdio_command)
     success = await tester.run_all_tests()
     
     sys.exit(0 if success else 1)

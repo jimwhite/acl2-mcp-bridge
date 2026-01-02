@@ -1,6 +1,7 @@
 #!/bin/bash
 # MCP Client Test Driver
 # Starts the MCP server in ACL2, waits for it, then runs Python client tests
+# Supports both HTTP and stdio (via mcp-proxy-tool) transports
 
 set -e
 
@@ -12,6 +13,7 @@ PORT="${MCP_PORT:-8080}"
 URL="http://localhost:$PORT/mcp"
 TIMEOUT=60
 VERBOSE=""
+TRANSPORT="http"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -25,12 +27,19 @@ while [[ $# -gt 0 ]]; do
             URL="http://localhost:$PORT/mcp"
             shift 2
             ;;
+        -t|--transport)
+            TRANSPORT="$2"
+            shift 2
+            ;;
         -h|--help)
-            echo "Usage: $0 [-v|--verbose] [-p|--port PORT]"
+            echo "Usage: $0 [-v|--verbose] [-p|--port PORT] [-t|--transport http|stdio]"
             echo ""
             echo "Options:"
-            echo "  -v, --verbose    Enable verbose output"
-            echo "  -p, --port PORT  Server port (default: 8080)"
+            echo "  -v, --verbose          Enable verbose output"
+            echo "  -p, --port PORT        Server port (default: 8080)"
+            echo "  -t, --transport TYPE   Transport: 'http' or 'stdio' (default: http)"
+            echo ""
+            echo "The stdio transport uses mcp-proxy-tool to proxy HTTP to stdio."
             exit 0
             ;;
         *)
@@ -43,6 +52,7 @@ done
 echo "=============================================="
 echo "MCP Client Test Suite"
 echo "=============================================="
+echo "Transport:  $TRANSPORT"
 echo "Server URL: $URL"
 echo "Project:    $PROJECT_DIR"
 echo ""
@@ -137,7 +147,21 @@ echo "Running MCP client tests..."
 echo ""
 
 cd "$SCRIPT_DIR"
-"$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --url "$URL" $VERBOSE
+
+if [[ "$TRANSPORT" == "stdio" ]]; then
+    # Check that mcp-proxy-tool is available
+    if ! command -v mcp-proxy-tool &> /dev/null; then
+        echo "ERROR: mcp-proxy-tool not found. Install it from:"
+        echo "  https://github.com/awakecoding/mcp-proxy-tool"
+        exit 1
+    fi
+    
+    STDIO_CMD="mcp-proxy-tool -u $URL"
+    echo "Using mcp-proxy-tool for stdio transport"
+    "$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --transport stdio --stdio-command "$STDIO_CMD" $VERBOSE
+else
+    "$PROJECT_DIR/.venv/bin/python" mcp-client-tests.py --url "$URL" $VERBOSE
+fi
 TEST_EXIT=$?
 
 echo ""

@@ -1,3 +1,6 @@
 [submodule "vendor/40ants-mcp"]
 	path = vendor/40ants-mcp
 	url = https://github.com/jimwhite/40ants-mcp.git
+[submodule "vendor/acl2-mcp"]
+	path = vendor/acl2-mcp
+	url = https://github.com/jimwhite/acl2-mcp.git

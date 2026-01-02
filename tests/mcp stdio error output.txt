@@ -1,0 +1,113 @@
+2026-01-01 16:46:09.990 [info] Connection state: Starting
+2026-01-01 16:46:09.990 [info] Starting server from Remote extension host
+2026-01-01 16:46:10.012 [info] Connection state: Starting
+2026-01-01 16:46:10.012 [info] Connection state: Running
+2026-01-01 16:46:12.030 [warning] [server stderr] ACL2 process died. Log:
+2026-01-01 16:46:12.037 [warning] [server stderr] This is SBCL 2.5.9, an implementation of ANSI Common Lisp.
+2026-01-01 16:46:12.038 [warning] [server stderr] More information about SBCL is available at <http://www.sbcl.org/>.
+2026-01-01 16:46:12.038 [warning] [server stderr] 
+2026-01-01 16:46:12.038 [warning] [server stderr] SBCL is free software, provided as is, with absolutely no warranty.
+2026-01-01 16:46:12.038 [warning] [server stderr] It is mostly in the public domain; some portions are provided under
+2026-01-01 16:46:12.038 [warning] [server stderr] BSD-style licenses.  See the CREDITS and COPYING files in the
+2026-01-01 16:46:12.038 [warning] [server stderr] distribution for more information.
+2026-01-01 16:46:12.038 [warning] [server stderr] 
+2026-01-01 16:46:12.038 [warning] [server stderr]  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-01-01 16:46:12.038 [warning] [server stderr]  + ACL2 Version 8.6+ (a development snapshot based on ACL2 Version 8.6) +
+2026-01-01 16:46:12.038 [warning] [server stderr]  +   built October 26, 2025  03:26:12.                                  +
+2026-01-01 16:46:12.038 [warning] [server stderr]  +   (Note from the environment when this executable was saved:         +
+2026-01-01 16:46:12.038 [warning] [server stderr]  +    Git commit hash: f616797704e17ffce6a0d5e38fc09713bad26572)        +
+2026-01-01 16:46:12.038 [warning] [server stderr]  + Copyright (C) 2025, Regents of the University of Texas.              +
+2026-01-01 16:46:12.038 [warning] [server stderr]  + ACL2 comes with ABSOLUTELY NO WARRANTY.  This is free software and   +
+2026-01-01 16:46:12.038 [warning] [server stderr]  + you are welcome to redistribute it under certain conditions.  For    +
+2026-01-01 16:46:12.038 [warning] [server stderr]  + details, see the LICENSE file distributed with ACL2.                 +
+2026-01-01 16:46:12.039 [warning] [server stderr]  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-01-01 16:46:12.039 [warning] [server stderr] 
+2026-01-01 16:46:12.039 [warning] [server stderr] Project-dir-alist:
+2026-01-01 16:46:12.039 [warning] [server stderr] ((:SYSTEM . "/home/acl2/books/")).
+2026-01-01 16:46:12.039 [warning] [server stderr] Type :help for help.
+2026-01-01 16:46:12.039 [warning] [server stderr] Type (quit) to quit completely out of ACL2.
+2026-01-01 16:46:12.039 [warning] [server stderr] 
+2026-01-01 16:46:12.039 [warning] [server stderr] ACL2 !>
+2026-01-01 16:46:12.039 [warning] [server stderr] Exiting the ACL2 read-eval-print loop.  To re-enter, execute (LP).
+2026-01-01 16:46:12.039 [warning] [server stderr] * * T
+2026-01-01 16:46:12.039 [warning] [server stderr] * (#P"/workspaces/acl2-mcp-bridge/" #P"/home/jovyan/quicklisp/quicklisp/")
+2026-01-01 16:46:12.039 [warning] [server stderr] * (#P"/workspaces/acl2-mcp-bridge/vendor/40ants-mcp/"
+2026-01-01 16:46:12.039 [warning] [server stderr]  #P"/workspaces/acl2-mcp-bridge/" #P"/home/jovyan/quicklisp/quicklisp/")
+2026-01-01 16:46:12.039 [warning] [server stderr] * WARNING: System definition file #P"/home/jovyan/quicklisp/dists/ultralisp/software/diogoalexandrefranco-cl-strings-20210309201001/cl-strings.asd" contains definition for system "cl-strings-tests". Please only define "cl-strings" and secondary systems with a name starting with "cl-strings/" (e.g. "cl-strings/test") in that file.
+2026-01-01 16:46:12.039 [warning] [server stderr] WARNING: redefining LOG4CL-IMPL:APPENDER-ADDED in DEFGENERIC
+2026-01-01 16:46:12.039 [warning] [server stderr] WARNING: redefining LOG4CL-IMPL:APPENDER-REMOVED in DEFGENERIC
+2026-01-01 16:46:12.039 [warning] [server stderr] WARNING: redefining LOG4CL-IMPL::PROPERTY-ALIST in DEFGENERIC
+2026-01-01 16:46:12.039 [warning] [server stderr] WARNING: redefining IRONCLAD:BLOCK-LENGTH in DEFGENERIC
+2026-01-01 16:46:12.040 [warning] [server stderr] WARNING: redefining SENTO.ACTOR:CONTEXT in DEFGENERIC
+2026-01-01 16:46:12.040 [warning] [server stderr] WARNING: redefining SENTO.ACTOR:WATCHERS in DEFGENERIC
+2026-01-01 16:46:12.040 [warning] [server stderr] WARNING: redefining ACL2-MCP-BRIDGE::SEND-BRIDGE-MESSAGE in DEFUN
+2026-01-01 16:46:12.040 [warning] [server stderr] WARNING: redefining ACL2-MCP-BRIDGE::SEND-BRIDGE-RETURN in DEFUN
+2026-01-01 16:46:12.040 [warning] [server stderr] WARNING: redefining ACL2-MCP-BRIDGE::SEND-BRIDGE-ERROR in DEFUN
+2026-01-01 16:46:12.040 [warning] [server stderr] T
+2026-01-01 16:46:12.040 [warning] [server stderr] *  <INFO> [00:46:11] acl2-mcp-bridge main.lisp (top level form start-server) -
+2026-01-01 16:46:12.040 [warning] [server stderr]   MCP server starting via 40ants-mcp (HTTP transport)
+2026-01-01 16:46:12.040 [warning] [server stderr]  <INFO> [00:46:11] acl2-mcp-bridge mcp-server.lisp (top level form start-mcp-server) -
+2026-01-01 16:46:12.040 [warning] [server stderr]   Starting MCP server with transport HTTP
+2026-01-01 16:46:12.040 [warning] [server stderr]  <INFO> [00:46:11] acl2-mcp-bridge session-transport.lisp (top level form start-loop session-http-transport) -
+2026-01-01 16:46:12.040 [warning] [server stderr]   Starting session-aware HTTP transport on port NIL
+2026-01-01 16:46:12.040 [warning] [server stderr] NOTICE: Running in debug mode. Debugger will be invoked on errors.
+2026-01-01 16:46:12.040 [warning] [server stderr]   Specify ':debug nil' to turn it off on remote environments.
+2026-01-01 16:46:12.040 [warning] [server stderr] Hunchentoot server is started.
+2026-01-01 16:46:12.040 [warning] [server stderr] Listening on 127.0.0.1:NIL.
+2026-01-01 16:46:12.040 [warning] [server stderr] #S(CLACK.HANDLER::HANDLER
+2026-01-01 16:46:12.040 [warning] [server stderr]    :SERVER :HUNCHENTOOT
+2026-01-01 16:46:12.040 [warning] [server stderr]    :SWANK-PORT NIL
+2026-01-01 16:46:12.040 [warning] [server stderr]    :ACCEPTOR #<BT2:THREAD "clack-handler-hunchentoot" {1039834803}>)
+2026-01-01 16:46:12.041 [warning] [server stderr] *
+2026-01-01 16:46:12.041 [warning] [server stderr] MCP_SOCKET_READY
+2026-01-01 16:46:12.041 [warning] [server stderr] NIL
+2026-01-01 16:46:12.041 [warning] [server stderr] * NIL
+2026-01-01 16:46:12.041 [warning] [server stderr] * Unhandled SIMPLE-TYPE-ERROR in thread #<error printing a SB-THREAD:THREAD: #<PRINT-NOT-READABLE {1039F0E9B3}>>: The value of SB-BSD-SOCKETS::ADDRESS is (#(127 0 0 1) NIL), which is not of type (OR NULL (CONS SEQUENCE (CONS (UNSIGNED-BYTE 16) T))).
+2026-01-01 16:46:12.041 [warning] [server stderr] 
+2026-01-01 16:46:12.041 [warning] [server stderr] Backtrace for: #<SB-THREAD:THREAD tid=71265 "clack-handler-hunchentoot" RUNNING {1039A71693}>
+2026-01-01 16:46:12.041 [warning] [server stderr] 0: (SB-DEBUG::DEBUGGER-DISABLED-HOOK #<SIMPLE-TYPE-ERROR expected-type: (OR NULL (CONS SEQUENCE (CONS (UNSIGNED-BYTE 16) T))) datum: (#<(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (4)) {1039DA06EF}> NIL)> #<unused argument> :QUIT T)
+2026-01-01 16:46:12.041 [warning] [server stderr] 1: (SB-DEBUG::RUN-HOOK *INVOKE-DEBUGGER-HOOK* #<SIMPLE-TYPE-ERROR expected-type: (OR NULL (CONS SEQUENCE (CONS (UNSIGNED-BYTE 16) T))) datum: (#<(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (4)) {1039DA06EF}> NIL)>)
+2026-01-01 16:46:12.041 [warning] [server stderr] 2: (INVOKE-DEBUGGER #<SIMPLE-TYPE-ERROR expected-type: (OR NULL (CONS SEQUENCE (CONS (UNSIGNED-BYTE 16) T))) datum: (#<(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (4)) {1039DA06EF}> NIL)>)
+2026-01-01 16:46:12.041 [warning] [server stderr] 3: (ERROR #<SIMPLE-TYPE-ERROR expected-type: (OR NULL (CONS SEQUENCE (CONS (UNSIGNED-BYTE 16) T))) datum: (#<(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (4)) {1039DA06EF}> NIL)>)
+2026-01-01 16:46:12.041 [warning] [server stderr] 4: (USOCKET::SOCKET-LISTEN-INTERNAL #<unavailable argument> :PORT #<unavailable argument> :REUSEADDRESS #<unavailable argument> :REUSE-ADDRESS #<unavailable argument> :BACKLOG #<unavailable argument> :ELEMENT-TYPE #<unavailable argument>)
+2026-01-01 16:46:12.041 [warning] [server stderr] 5: (USOCKET:SOCKET-LISTEN #<unavailable argument> #<unavailable argument> :REUSEADDRESS T :BACKLOG 50 :ELEMENT-TYPE (UNSIGNED-BYTE 8))
+2026-01-01 16:46:12.041 [warning] [server stderr] 6: ((:METHOD HUNCHENTOOT:START-LISTENING (HUNCHENTOOT:ACCEPTOR)) #<CLACK.HANDLER.HUNCHENTOOT::CLACK-ACCEPTOR (host 127.0.0.1, port NIL)>) [fast-method]
+2026-01-01 16:46:12.042 [warning] [server stderr] 7: ((SB-PCL::EMF HUNCHENTOOT:START-LISTENING) #<unused argument> #<unused argument> #<CLACK.HANDLER.HUNCHENTOOT::CLACK-ACCEPTOR (host 127.0.0.1, port NIL)>)
+2026-01-01 16:46:12.042 [warning] [server stderr] 8: ((:METHOD HUNCHENTOOT:START (HUNCHENTOOT:ACCEPTOR)) #<CLACK.HANDLER.HUNCHENTOOT::CLACK-ACCEPTOR (host 127.0.0.1, port NIL)>) [fast-method]
+2026-01-01 16:46:12.042 [warning] [server stderr] 9: (CLACK.HANDLER.HUNCHENTOOT:RUN #<unavailable argument> #<unavailable &REST argument> :DEBUG #<unused argument> :ADDRESS #<unused argument> :PORT #<unavailable argument> :SSL #<unavailable argument> :SSL-KEY-FILE #<unavailable argument> :SSL-CERT-FILE #<unavailable argument> :SSL-KEY-PASSWORD #<unavailable argument> :MAX-THREAD-COUNT #<unavailable argument> :MAX-ACCEPT-COUNT #<unavailable argument> :PERSISTENT-CONNECTIONS-P #<unavailable argument>)
+2026-01-01 16:46:12.042 [warning] [server stderr] 10: ((FLET BT2::RUN-FUNCTION :IN BT2::ESTABLISH-DYNAMIC-ENV))
+2026-01-01 16:46:12.042 [warning] [server stderr] 11: ((LABELS BT2::%ESTABLISH-DYNAMIC-ENV-WRAPPER :IN BT2::ESTABLISH-DYNAMIC-ENV))
+2026-01-01 16:46:12.042 [warning] [server stderr] 12: ((FLET SB-UNIX::BODY :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.042 [warning] [server stderr] 13: ((FLET "WITHOUT-INTERRUPTS-BODY-" :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.042 [warning] [server stderr] 14: ((FLET SB-UNIX::BODY :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.042 [warning] [server stderr] 15: ((FLET "WITHOUT-INTERRUPTS-BODY-" :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.042 [warning] [server stderr] 16: (SB-THREAD::RUN)
+2026-01-01 16:46:12.042 [warning] [server stderr] 
+2026-01-01 16:46:12.042 [warning] [server stderr] unhandled condition in --disable-debugger mode, quitting
+2026-01-01 16:46:12.042 [warning] [server stderr] [2026-01-02 00:46:11 [ERROR]] Wake-for-shutdown connect failed: There is no applicable method for the generic function #<STANDARD-GENERIC-FUNCTION USOCKET:GET-LOCAL-NAME (1)> when called with arguments (NIL).
+2026-01-01 16:46:12.042 [warning] [server stderr] See also:
+2026-01-01 16:46:12.042 [warning] [server stderr]   The ANSI Standard, Section 7.6.6
+2026-01-01 16:46:12.042 [warning] [server stderr] Unhandled UNBOUND-SLOT in thread #<error printing a SB-THREAD:THREAD: #<PRINT-NOT-READABLE {103A011623}>>: The slot HUNCHENTOOT::ACCEPTOR-PROCESS is unbound in the object #<ONE-THREAD-PER-CONNECTION-TASKMASTER {1039B1FA93}>.
+2026-01-01 16:46:12.042 [warning] [server stderr] 
+2026-01-01 16:46:12.042 [warning] [server stderr] Backtrace for: #<SB-THREAD:THREAD tid=71265 "clack-handler-hunchentoot" RUNNING {1039A71693}>
+2026-01-01 16:46:12.042 [warning] [server stderr] 0: (SB-DEBUG::DEBUGGER-DISABLED-HOOK #<UNBOUND-SLOT ACCEPTOR-PROCESS {103A010873}> #<unused argument> :QUIT T)
+2026-01-01 16:46:12.043 [warning] [server stderr] 1: (SB-DEBUG::RUN-HOOK *INVOKE-DEBUGGER-HOOK* #<UNBOUND-SLOT ACCEPTOR-PROCESS {103A010873}>)
+2026-01-01 16:46:12.043 [warning] [server stderr] 2: (INVOKE-DEBUGGER #<UNBOUND-SLOT ACCEPTOR-PROCESS {103A010873}>)
+2026-01-01 16:46:12.043 [warning] [server stderr] 3: (ERROR #<UNBOUND-SLOT ACCEPTOR-PROCESS {103A010873}>)
+2026-01-01 16:46:12.043 [warning] [server stderr] 4: (SB-KERNEL:WITH-SIMPLE-CONDITION-RESTARTS ERROR NIL UNBOUND-SLOT :NAME HUNCHENTOOT::ACCEPTOR-PROCESS :INSTANCE #<HUNCHENTOOT:ONE-THREAD-PER-CONNECTION-TASKMASTER {1039B1FA93}>)
+2026-01-01 16:46:12.043 [warning] [server stderr] 5: ((:METHOD SLOT-UNBOUND (T T T)) #<unused argument> #<HUNCHENTOOT:ONE-THREAD-PER-CONNECTION-TASKMASTER {1039B1FA93}> HUNCHENTOOT::ACCEPTOR-PROCESS) [fast-method]
+2026-01-01 16:46:12.043 [warning] [server stderr] 6: (SB-PCL::SLOT-UNBOUND-INTERNAL #<HUNCHENTOOT:ONE-THREAD-PER-CONNECTION-TASKMASTER {1039B1FA93}> 1)
+2026-01-01 16:46:12.043 [warning] [server stderr] 7: ((:METHOD HUNCHENTOOT:SHUTDOWN (HUNCHENTOOT:ONE-THREAD-PER-CONNECTION-TASKMASTER)) #<HUNCHENTOOT:ONE-THREAD-PER-CONNECTION-TASKMASTER {1039B1FA93}>) [fast-method]
+2026-01-01 16:46:12.043 [warning] [server stderr] 8: ((:METHOD HUNCHENTOOT:STOP (HUNCHENTOOT:ACCEPTOR)) #<CLACK.HANDLER.HUNCHENTOOT::CLACK-ACCEPTOR (host 127.0.0.1, port NIL)> :SOFT #<unavailable argument>) [fast-method]
+2026-01-01 16:46:12.043 [warning] [server stderr] 9: ((FLET "CLEANUP-FUN-4" :IN CLACK.HANDLER.HUNCHENTOOT:RUN)) [cleanup]
+2026-01-01 16:46:12.043 [warning] [server stderr] 10: (CLACK.HANDLER.HUNCHENTOOT:RUN #<unavailable argument> #<unavailable &REST argument> :DEBUG #<unused argument> :ADDRESS #<unused argument> :PORT #<unavailable argument> :SSL #<unavailable argument> :SSL-KEY-FILE #<unavailable argument> :SSL-CERT-FILE #<unavailable argument> :SSL-KEY-PASSWORD #<unavailable argument> :MAX-THREAD-COUNT #<unavailable argument> :MAX-ACCEPT-COUNT #<unavailable argument> :PERSISTENT-CONNECTIONS-P #<unavailable argument>)
+2026-01-01 16:46:12.043 [warning] [server stderr] 11: ((FLET BT2::RUN-FUNCTION :IN BT2::ESTABLISH-DYNAMIC-ENV))
+2026-01-01 16:46:12.043 [warning] [server stderr] 12: ((LABELS BT2::%ESTABLISH-DYNAMIC-ENV-WRAPPER :IN BT2::ESTABLISH-DYNAMIC-ENV))
+2026-01-01 16:46:12.043 [warning] [server stderr] 13: ((FLET SB-UNIX::BODY :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.043 [warning] [server stderr] 14: ((FLET "WITHOUT-INTERRUPTS-BODY-" :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.043 [warning] [server stderr] 15: ((FLET SB-UNIX::BODY :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.043 [warning] [server stderr] 16: ((FLET "WITHOUT-INTERRUPTS-BODY-" :IN SB-THREAD::RUN))
+2026-01-01 16:46:12.043 [warning] [server stderr] 17: (SB-THREAD::RUN)
+2026-01-01 16:46:12.043 [warning] [server stderr] 
+2026-01-01 16:46:12.043 [warning] [server stderr] unhandled condition in --disable-debugger mode, quitting
+2026-01-01 16:46:12.043 [info] Connection state: Error Process exited with code 1

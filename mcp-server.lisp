@@ -132,7 +132,9 @@ Each client (identified by MCP session ID) gets its own CL evaluation context.
                         (find-symbol "HANDLE-MESSAGE" 
                                      (find-package "40ANTS-MCP/SERVER/DEFINITION"))))
             (rpc-server (funcall init-fn acl2-mcp-tools))
-            (transport-obj (make-instance 'session-http-transport :port port)))
+            (transport-obj (make-instance 'session-http-transport 
+                                          :port port 
+                                          :socket-path socket-path)))
        (start-loop transport-obj
                    (lambda (message)
                      (funcall handle-fn rpc-server message)))))

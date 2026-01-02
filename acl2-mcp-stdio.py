@@ -77,35 +77,40 @@ def main():
     signal.signal(signal.SIGINT, cleanup)
     
     try:
-        # Wait for socket, watching for subprocess death
+        # Wait for server to signal it's ready (look for marker in stderr)
         log("Waiting for server...")
-        while True:
+        server_ready = False
+        max_wait = 60  # 60 seconds max startup time
+        start_time = time.time()
+        
+        while time.time() - start_time < max_wait:
             if proc.poll() is not None:
                 log(f"ACL2 died with code {proc.returncode}")
                 stdout, stderr = proc.communicate()
                 log(f"stderr: {stderr.decode()[:2000] if stderr else ''}")
                 sys.exit(1)
             
-            if os.path.exists(sock_path):
-                try:
-                    conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                    conn.connect(sock_path)
-                    log("Connected to socket")
-                    break
-                except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
-                    # Socket exists but not listening yet - close and retry
-                    conn.close()
-                    conn = None
-            
-            # Stream stderr while waiting, with a delay
-            readable, _, _ = select.select([proc.stderr], [], [], 0.05)
+            # Check stderr for ready marker
+            readable, _, _ = select.select([proc.stderr], [], [], 0.1)
             if readable:
                 line = proc.stderr.readline()
                 if line:
                     sys.stderr.buffer.write(line)
                     sys.stderr.buffer.flush()
+                    # Look for the "Socket ready, accepting..." marker
+                    if b"Socket ready, accepting" in line:
+                        server_ready = True
+                        log("Server ready, connecting...")
+                        break
         
-        log("Connected, bridging stdio <-> socket")
+        if not server_ready:
+            log("Timeout waiting for server ready signal")
+            sys.exit(1)
+        
+        # Now connect to the socket
+        conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        conn.connect(sock_path)
+        log("Connected to socket")
         conn.setblocking(False)
         stdin_fd = sys.stdin.buffer.fileno()
         stderr_fd = proc.stderr.fileno()
@@ -120,6 +125,7 @@ def main():
                     if not data:
                         log("EOF on stdin")
                         return
+                    log(f"stdin->socket: {len(data)} bytes: {data[:100]!r}")
                     conn.sendall(data)
                 elif fd == stderr_fd:
                     line = proc.stderr.readline()
@@ -132,6 +138,7 @@ def main():
                         if not data:
                             log("Socket closed")
                             return
+                        log(f"socket->stdout: {len(data)} bytes: {data[:100]!r}")
                         sys.stdout.buffer.write(data)
                         sys.stdout.buffer.flush()
                     except BlockingIOError:
