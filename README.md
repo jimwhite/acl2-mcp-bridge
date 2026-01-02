@@ -10,6 +10,38 @@ A Model Context Protocol (MCP) server for ACL2 theorem proving and Common Lisp e
 - **ACL2 Integration**: Theorem proving tools (admit, check-theorem, verify-guards)
 - **Legacy Bridge Protocol**: Backward compatible with ACL2 Bridge TCP protocol
 
+## Installation
+
+This project is fully self-contained using VS Code Dev Containers with the `acl2-jupyter` Docker image. No local installation of ACL2, SBCL, or Quicklisp is required.
+
+### Quick Start with VS Code Dev Container
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/jimwhite/acl2-mcp-bridge.git
+   ```
+
+2. **Open in VS Code:**
+   ```bash
+   code acl2-mcp-bridge
+   ```
+
+3. **Reopen in Container:**
+   - VS Code will detect the `.devcontainer` configuration
+   - Click "Reopen in Container" when prompted (or use Command Palette: "Dev Containers: Reopen in Container")
+   - Wait for the container to build and start
+
+4. **Start the MCP Server:**
+   ```bash
+   acl2 < start-mcp-server.lisp
+   ```
+
+The devcontainer includes:
+- ACL2 built on SBCL
+- Quicklisp with Ultralisp (for `40ants-mcp`)
+- Python 3 with Jupyter
+- All required dependencies pre-installed
+
 ## Key Features
 ### 1. ACL2 Theorem Proving Tools (from septract/acl2-mcp)
 - **check-theorem** - Verify a specific theorem
@@ -43,26 +75,27 @@ A Model Context Protocol (MCP) server for ACL2 theorem proving and Common Lisp e
 
 ## Quick Start
 
-### Running Inside ACL2
+### Running the MCP Server
 
-The server runs inside ACL2 (not standalone SBCL), giving direct access to ACL2's theorem prover.
+From within the devcontainer terminal:
 
 ```bash
-# Start ACL2 and load the bridge
-acl2
-:q  ; Exit ACL2 loop to raw Lisp
+acl2 < start-mcp-server.lisp
+```
 
-;; Load quicklisp and the bridge
-(load "~/quicklisp/setup.lisp")
-(ql:quickload :acl2-mcp-bridge)
+The server will print:
+```
+MCP server starting via 40ants-mcp (HTTP transport)
+Hunchentoot server is started. Listening on 127.0.0.1:8085.
+```
 
-;; Start MCP HTTP server on port 8085
-(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
+### Alternative Startup Options
 
-;; Or start Bridge protocol on port 55433
+```lisp
+;; Start Bridge protocol on port 55433
 (acl2-mcp-bridge:start-server :protocol :bridge :port 55433)
 
-;; Or start both
+;; Or start both protocols
 (acl2-mcp-bridge:start-both :bridge-port 55433 :mcp-port 8085)
 ```
 
@@ -196,7 +229,7 @@ curl -X DELETE http://127.0.0.1:8085/mcp \
 
 ## VS Code / GitHub Copilot Configuration
 
-VS Code's MCP implementation uses Streamable HTTP with persistent connections. Add to your `.code-workspace` file or VS Code settings:
+The workspace file `acl2-mcp-bridge.code-workspace` is pre-configured for MCP. It contains:
 
 ```json
 {
@@ -211,14 +244,7 @@ VS Code's MCP implementation uses Streamable HTTP with persistent connections. A
 }
 ```
 
-Then start the server from ACL2:
-
-```lisp
-;; In ACL2 raw mode (:q to exit ACL2 loop)
-(load "~/quicklisp/setup.lisp")
-(ql:quickload :acl2-mcp-bridge)
-(acl2-mcp-bridge:start-server :protocol :mcp :transport :http :port 8085)
-```
+Just run `acl2 < start-mcp-server.lisp` and VS Code will connect automatically.
 
 **Note**: VS Code maintains session state via persistent HTTP connections, so no `MCP-Session-Id` header management is required.
 
@@ -402,9 +428,10 @@ Each `*x*` and `foo` lives in a separate package (`SESSION-abc123` vs `SESSION-x
 
 ## Requirements
 
-- SBCL (or other threaded CL implementation)
-- Quicklisp with Ultralisp dist (for 40ants-mcp)
-- Optional: ACL2 executable for theorem proving tools
+- **VS Code** with Dev Containers extension
+- **Docker** (for running the devcontainer)
+
+All other dependencies (ACL2, SBCL, Quicklisp, Ultralisp) are included in the devcontainer image.
 
 ## License
 
