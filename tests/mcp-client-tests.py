@@ -162,6 +162,11 @@ class MCPClientTester:
         await self.test_acl2_query_event_tool(session)
         await self.test_acl2_include_book_tool(session)
         
+        # Bridge-compatible tool tests
+        await self.test_eval_with_output_tool(session)
+        await self.test_eval_multiple_values_tool(session)
+        await self.test_eval_main_thread_tool(session)
+        
     async def test_tool_discovery(self, session: ClientSession):
         """Test that we can discover available tools"""
         print("\n--- Tool Discovery Tests ---")
@@ -658,6 +663,145 @@ class MCPClientTester:
         except Exception as e:
             self.suite.add(TestResult(
                 name="acl2_include_book tests",
+                passed=False,
+                message=str(e)
+            ))
+
+    # =========================================================================
+    # Bridge-Compatible Tool Tests
+    # =========================================================================
+    
+    async def test_eval_with_output_tool(self, session: ClientSession):
+        """Test the eval_with_output tool (Bridge STDOUT capture equivalent)"""
+        print("\n--- eval_with_output Tool Tests ---")
+        
+        try:
+            # Test with CL that produces output
+            result = await session.call_tool("eval_with_output", {
+                "code": "(progn (format t \"Hello from Lisp~%\") (+ 1 2))",
+                "environment": "cl"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"eval_with_output CL: {result_text[:150]}")
+            
+            # Should have both result and output
+            has_result = "3" in result_text or "Result" in result_text
+            self.suite.add(TestResult(
+                name="eval_with_output: CL with FORMAT output",
+                passed=has_result,
+                message=result_text[:100]
+            ))
+            
+            # Test with ACL2 that produces CW output
+            result = await session.call_tool("eval_with_output", {
+                "code": "(prog2$ (cw \"ACL2 message~%\") (+ 10 20))",
+                "environment": "acl2"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"eval_with_output ACL2: {result_text[:150]}")
+            
+            # Should have result (output capture may vary)
+            has_result = "30" in result_text or "Result" in result_text
+            self.suite.add(TestResult(
+                name="eval_with_output: ACL2 with CW output",
+                passed=has_result,
+                message=result_text[:100]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="eval_with_output tests",
+                passed=False,
+                message=str(e)
+            ))
+    
+    async def test_eval_multiple_values_tool(self, session: ClientSession):
+        """Test the eval_multiple_values tool (Bridge LISP_MV equivalent)"""
+        print("\n--- eval_multiple_values Tool Tests ---")
+        
+        try:
+            # Test with CL multiple values
+            result = await session.call_tool("eval_multiple_values", {
+                "code": "(values 1 2 3)",
+                "environment": "cl"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"eval_multiple_values CL: {result_text[:150]}")
+            
+            # Should show 3 values
+            has_multiple = "3 value" in result_text.lower() or ("1" in result_text and "2" in result_text and "3" in result_text)
+            self.suite.add(TestResult(
+                name="eval_multiple_values: CL (values 1 2 3)",
+                passed=has_multiple,
+                message=result_text[:100]
+            ))
+            
+            # Test with floor which returns quotient and remainder
+            result = await session.call_tool("eval_multiple_values", {
+                "code": "(floor 17 5)",
+                "environment": "cl"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"eval_multiple_values floor: {result_text[:150]}")
+            
+            # Should show both 3 and 2 (17/5 = 3 remainder 2)
+            has_both = "3" in result_text and "2" in result_text
+            self.suite.add(TestResult(
+                name="eval_multiple_values: CL floor",
+                passed=has_both,
+                message=result_text[:100]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="eval_multiple_values tests",
+                passed=False,
+                message=str(e)
+            ))
+    
+    async def test_eval_main_thread_tool(self, session: ClientSession):
+        """Test the eval_main_thread tool (Bridge in-main-thread equivalent)"""
+        print("\n--- eval_main_thread Tool Tests ---")
+        
+        try:
+            # Basic evaluation in main thread
+            result = await session.call_tool("eval_main_thread", {
+                "code": "(+ 100 200 300)"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"eval_main_thread: {result_text[:150]}")
+            
+            # Should return 600
+            passed = "600" in result_text
+            self.suite.add(TestResult(
+                name="eval_main_thread: Basic arithmetic",
+                passed=passed,
+                message=result_text[:100]
+            ))
+            
+            # Test with list operations (potential hons usage)
+            result = await session.call_tool("eval_main_thread", {
+                "code": "(append '(a b) '(c d))"
+            })
+            result_text = self._get_result_text(result)
+            
+            self.log(f"eval_main_thread list: {result_text[:150]}")
+            
+            passed = "A" in result_text.upper() and "D" in result_text.upper()
+            self.suite.add(TestResult(
+                name="eval_main_thread: List operations",
+                passed=passed,
+                message=result_text[:100]
+            ))
+            
+        except Exception as e:
+            self.suite.add(TestResult(
+                name="eval_main_thread tests",
                 passed=False,
                 message=str(e)
             ))

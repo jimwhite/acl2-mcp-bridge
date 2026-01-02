@@ -42,9 +42,9 @@ Example: (defthm append-nil (implies (true-listp x) (equal (append x nil) x)))
 Returns detailed ACL2 proof output showing the proof steps.")
   (:param code string "ACL2 defthm form to prove")
   (:result (soft-list-of text-content))
-  ;; Use acl2-eval which works
+  ;; defthm adds to ACL2 world - run in main thread for safety
   (multiple-value-bind (result error-p error-msg)
-      (acl2-eval code)
+      (acl2-eval code :main-thread-p t)
     (if error-p
         (list (make-instance 'text-content 
                             :text (format nil "Proof FAILED: ~A" error-msg)))
@@ -83,9 +83,9 @@ Use this for general event submission. For theorems specifically, acl2-prove
 provides more detailed output.")
   (:param code string "ACL2 event, e.g. \"(defun double (x) (* 2 x))\"")
   (:result (soft-list-of text-content))
-  ;; Use acl2-eval which works - it returns the result of the form
+  ;; Event submission modifies ACL2 world - run in main thread for safety
   (multiple-value-bind (result error-p error-msg)
-      (acl2-eval code)
+      (acl2-eval code :main-thread-p t)
     (if error-p
         (list (make-instance 'text-content 
                             :text (format nil "FAILED: ~A" error-msg)))
@@ -188,8 +188,9 @@ IMPORTANT: Provide path WITHOUT .lisp extension.")
                   (format nil "(include-book ~S :dir ~A)" book-path 
                           (if (string-equal dir ":system") ":system" dir))
                   (format nil "(include-book ~S)" book-path))))
+    ;; include-book modifies ACL2 state heavily - must run in main thread
     (multiple-value-bind (result error-p error-msg)
-        (acl2-eval code)
+        (acl2-eval code :main-thread-p t)
       (declare (ignore result))
       (list (make-instance 'text-content 
                           :text (if error-p
@@ -204,8 +205,9 @@ IMPORTANT: Provide path WITHOUT the .lisp extension.")
   (:param book-path string "Path to book without .lisp extension")
   (:result (soft-list-of text-content))
   (let ((code (format nil "(certify-book ~S)" book-path)))
+    ;; certify-book does heavy state modification - must run in main thread
     (multiple-value-bind (result error-p error-msg)
-        (acl2-eval code)
+        (acl2-eval code :main-thread-p t)
       (declare (ignore result))
       (list (make-instance 'text-content 
                           :text (if error-p
@@ -223,8 +225,9 @@ alternative approaches. By default undoes just the last event.")
   (:param count string "Number of events to undo (default: 1)")
   (:result (soft-list-of text-content))
   (declare (ignore count))  ; TODO: implement multi-undo using count
+  ;; Undo modifies ACL2 world - run in main thread for safety
   (multiple-value-bind (result error-p error-msg)
-      (acl2-eval "(acl2::ubt! :here)")
+      (acl2-eval "(acl2::ubt! :here)" :main-thread-p t)
     (declare (ignore result))
     (list (make-instance 'text-content 
                         :text (if error-p

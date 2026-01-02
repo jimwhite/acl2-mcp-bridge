@@ -5,7 +5,8 @@
 (defparameter *bridge-server* nil)
 (defparameter *mcp-server* nil)
 
-(defun start-server (&key (protocol :bridge) (transport :http) port host socket-path acl2-path)
+(defun start-server (&key (protocol :bridge) (transport :http) port host socket-path acl2-path
+                          (main-thread-loop t))
   "Start the server with specified protocol.
 
    :protocol :bridge   - ACL2 Bridge protocol (TCP, default port 55433)
@@ -20,13 +21,17 @@
    :port               - Port number (for Bridge or MCP HTTP over TCP)
    :socket-path        - Unix socket path (for MCP HTTP over Unix socket)
    :host               - Host binding (HTTP transport only)
-   :acl2-path          - Ignored (we run inside ACL2)"
+   :acl2-path          - Ignored (we run inside ACL2)
+   :main-thread-loop   - If T (default), enter main thread loop after starting server.
+                         This blocks forever but allows safe ACL2 state operations.
+                         Set to NIL for testing or if you need control to return."
   (declare (ignore acl2-path))
   (case protocol
     (:bridge
      (setf *bridge-server*
        (start-bridge-server :port (or port *bridge-port*)))
      (log:info "ACL2 Bridge server started on port ~A" (or port *bridge-port*))
+     ;; Bridge protocol already handles main thread via its own start-fn
      *bridge-server*)
     (:mcp
      (when (eq transport :stdio)
@@ -35,6 +40,10 @@
      (log:info "MCP server starting via 40ants-mcp (~A transport)" transport)
      (setf *mcp-server*
        (start-mcp-server :transport transport :host host :port port :socket-path socket-path))
+     ;; Enter main thread loop so ACL2 operations can be delegated safely
+     (when main-thread-loop
+       (log:info "Entering main thread loop for ACL2 operation delegation")
+       (bridge::main-thread-loop))
      *mcp-server*)
     (otherwise
      (error "Unknown protocol: ~A" protocol))))
@@ -43,9 +52,11 @@
   "Start both Bridge and MCP servers (multi-protocol support).
 
 Returns two values: bridge server and MCP server."
-  (let ((bridge (start-server :protocol :bridge :port bridge-port))
-        (mcp (start-server :protocol :mcp :transport :http :host host :port mcp-port)))
+  (let ((bridge (start-server :protocol :bridge :port bridge-port :main-thread-loop nil))
+        (mcp (start-server :protocol :mcp :transport :http :host host :port mcp-port :main-thread-loop nil)))
     (log:info "Both Bridge and MCP servers running")
+    ;; Enter main thread loop
+    (bridge::main-thread-loop)
     (values bridge mcp)))
 
 (defun stop-server (&key (protocol :all))

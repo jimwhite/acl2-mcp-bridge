@@ -53,6 +53,7 @@
   "State for a CL evaluation session."
   (id "default" :type string)
   (eval-package nil)  ; Session's private package
+  (hons-space nil)    ; ACL2 hons space for this session (thread safety)
   (created (get-universal-time) :type integer)
   (last-activity (get-universal-time) :type integer))
 
@@ -75,14 +76,19 @@
 
 (defun get-or-create-session (session-id)
   "Get existing session or create new one for SESSION-ID.
-Creates a private package for the session to ensure symbol isolation."
+Creates a private package and hons space for the session."
   (bt:with-lock-held (*sessions-lock*)
     (or (gethash session-id *sessions*)
         (let* ((pkg (create-session-package session-id))
-               (session (make-cl-session :id session-id :eval-package pkg)))
+               ;; Create a dedicated hons space for ACL2 thread safety
+               ;; This is what centaur/bridge does for each worker thread
+               (hs (acl2::hl-hspace-init))
+               (session (make-cl-session :id session-id 
+                                         :eval-package pkg
+                                         :hons-space hs)))
           (setf (gethash session-id *sessions*) session)
-          (log:info "Created new CL session: ~A (package ~A)" 
-                    session-id (package-name pkg))
+          (log:info "Created new CL session: ~A (package ~A, hons-space ~A)" 
+                    session-id (package-name pkg) hs)
           session))))
 
 (defun get-session (session-id)

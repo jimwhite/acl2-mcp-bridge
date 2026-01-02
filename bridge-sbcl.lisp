@@ -305,13 +305,21 @@
 (defvar *main-thread-ready* (ccl-make-semaphore))
 
 (defun main-thread-loop ()
-  (loop do
-    (bridge-debug "Main thread waiting for work.~%")
-    (ccl-wait-on-semaphore *main-thread-ready*)
-    (bridge-debug "Main thread got work.~%")
-    (let ((work *main-thread-work*))
-      (setq *main-thread-work* nil)
-      (funcall work))))
+  "Run the main thread work loop. This should be called from the main ACL2 thread
+   after starting any background servers (HTTP, Bridge, etc.).
+   Worker threads delegate heavy ACL2 operations here via execute-in-main-thread."
+  (setf *main-thread-running* t)
+  (format t "; Main thread loop starting (thread: ~A)~%" (bt:current-thread))
+  (unwind-protect
+      (loop do
+        (bridge-debug "Main thread waiting for work.~%")
+        (ccl-wait-on-semaphore *main-thread-ready*)
+        (bridge-debug "Main thread got work.~%")
+        (let ((work *main-thread-work*))
+          (setq *main-thread-work* nil)
+          (when work (funcall work))))
+    (setf *main-thread-running* nil)
+    (format t "; Main thread loop exiting~%")))
 
 (defvar *no-main-thread* nil
   "When T, in-main-thread just executes forms directly.")
@@ -389,6 +397,55 @@
                (eval `(in-main-thread-aux ,form)))
            (bridge-debug "Releasing lock on main thread.~%")
            (ccl-release-lock *main-thread-lock*)))))
+
+;;; ---------------------------------------------------------------------------
+;;; Public API for Main Thread Execution
+;;; ---------------------------------------------------------------------------
+
+(defun execute-in-main-thread (thunk)
+  "Execute THUNK (a zero-argument function) in the main ACL2 thread.
+   This is safe for operations like include-book that require the main thread.
+   Returns the result of THUNK, or signals any error that occurred.
+   
+   If *no-main-thread* is true, just calls THUNK directly."
+  (if *no-main-thread*
+      (funcall thunk)
+      (ccl-with-lock-grabbed (*main-thread-lock*)
+        (bridge-debug "Got the lock, delegating to main thread.~%")
+        (let* ((done (ccl-make-semaphore))
+               (retvals nil)
+               (errval nil)
+               (finished nil))
+          ;; Install the work
+          (setq *main-thread-work*
+                (lambda ()
+                  (bridge-debug "Main thread executing work.~%")
+                  (handler-case
+                      (progn
+                        (setq retvals (multiple-value-list (funcall thunk)))
+                        (setq finished t))
+                    (error (condition)
+                      (bridge-debug "Main thread caught error: ~A~%" condition)
+                      (setq errval condition)
+                      (setq finished t)))
+                  (unless finished
+                    (setq errval (make-condition 'simple-error
+                                                 :format-control "Unexpected non-local exit.")))
+                  (ccl-signal-semaphore done)))
+          ;; Signal main thread
+          (ccl-signal-semaphore *main-thread-ready*)
+          ;; Wait for completion
+          (bridge-debug "Waiting for main thread...~%")
+          (ccl-wait-on-semaphore done)
+          ;; Return result or signal error
+          (when errval
+            (bridge-debug "Re-signaling error from main thread.~%")
+            (error errval))
+          (bridge-debug "Got result from main thread.~%")
+          (values-list retvals)))))
+
+(defvar *main-thread-running* nil
+  "True when main-thread-loop is running.")
 
 ;;; ============================================================================
 ;;; Public API

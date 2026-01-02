@@ -6,6 +6,17 @@
 ;; This code runs INSIDE ACL2, so we have direct access to ACL2 symbols
 ;; and *the-live-state*. Similar to centaur/bridge.
 
+;;; ---------------------------------------------------------------------------
+;;; Thread Safety for ACL2 State Operations
+;;;
+;;; ACL2's state (hons space, memoization tables, world) is not thread-safe.
+;;; When running with HTTP threads, we must delegate state-modifying operations
+;;; to the main ACL2 thread (just like centaur/bridge does for CCL).
+;;;
+;;; The main thread runs bridge::main-thread-loop after starting the HTTP server.
+;;; Worker threads use bridge::execute-in-main-thread to delegate heavy operations.
+;;; ---------------------------------------------------------------------------
+
 (defun initialize-acl2-interface (&optional acl2-path)
   "No-op - we're already running inside ACL2."
   (declare (ignore acl2-path))
@@ -15,18 +26,38 @@
   "Evaluate a form in ACL2.
 
    FORM-STRING is a string containing an s-expression.
-   If MAIN-THREAD-P is true, use bridge::in-main-thread for memoization safety.
+   If MAIN-THREAD-P is true, delegate to the main ACL2 thread for safety.
+   This is required for operations like include-book that modify ACL2 state.
 
    Returns (values result error-p error-message)"
-  (declare (ignore session-id))
   (handler-case
       (let* ((form (read-from-string form-string))
+             (session (and session-id (get-session session-id)))
+             (hs (if session 
+                     (cl-session-hons-space session)
+                     nil))
              (wrapped-form `(let ((acl2::state acl2::*the-live-state*))
                               (declare (ignorable acl2::state))
                               ,form)))
-        (if main-thread-p
-            (values (eval `(bridge::in-main-thread ,wrapped-form)) nil nil)
-            (values (eval wrapped-form) nil nil)))
+        (cond
+          ;; Main thread execution requested and main-thread-loop is running
+          ((and main-thread-p bridge::*main-thread-running*)
+           (values 
+            (bridge::execute-in-main-thread
+             (lambda ()
+               ;; Execute with session's hons space if available
+               (let ((acl2::*default-hs* (or hs acl2::*default-hs*))
+                     (*package* (find-package "ACL2")))
+                 (eval wrapped-form))))
+            nil nil))
+          ;; Main thread requested but not running - just use current thread with hons space
+          ((and main-thread-p hs)
+           (let ((acl2::*default-hs* hs)
+                 (*package* (find-package "ACL2")))
+             (values (eval wrapped-form) nil nil)))
+          ;; No special handling needed
+          (t
+           (values (eval wrapped-form) nil nil))))
     (error (e)
       (values nil t (format nil "~A" e)))))
 
